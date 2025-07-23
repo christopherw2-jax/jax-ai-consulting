@@ -1657,14 +1657,32 @@ IMPORTANT - Include JAX AI Consulting's Pay-for-Performance Pricing Model:
 
 Instructions:
 1. Identify 2-3 specific AI automation opportunities based on their pain points
-2. Calculate their potential annual savings using their time value and estimated weekly savings
+2. Calculate their potential annual savings using their time value and estimated weekly savings  
 3. Show their fee as 10% of annual savings
 4. Provide implementation plan and timeline
 5. List solution benefits
 6. Emphasize the no-risk, pay-for-performance model
 7. ALWAYS end with: "Would you like to schedule an in-person consultation to discuss implementing this solution for your business?"
 
-Use clear formatting with headers and bullet points. Ensure the response is complete and includes the consultation question.`;
+CRITICAL FORMATTING: Use clear section headers, bullet points, and line breaks for easy reading. Structure like:
+## IDENTIFIED AUTOMATION OPPORTUNITIES
+• Point 1
+• Point 2
+
+## POTENTIAL ANNUAL SAVINGS
+• Calculation details
+
+## YOUR INVESTMENT  
+• Fee calculation
+
+## IMPLEMENTATION PLAN
+• Timeline details
+
+## SOLUTION BENEFITS
+• Benefit list
+
+## NEXT STEPS
+• Consultation question`;
 
                     this.addMessage('Let me analyze your needs and create a customized AI solution proposal...', 'thinking');
 
@@ -1739,12 +1757,31 @@ Use clear formatting with headers and bullet points. Ensure the response is comp
                 const content = document.createElement('div');
                 content.className = 'message-content';
                 
-                // Convert markdown-style formatting to HTML
+                // Enhanced formatting for better readability
                 let formattedText = text
+                    // Headers
+                    .replace(/### (.*?)(\n|$)/g, '<h3>$1</h3>')
+                    .replace(/## (.*?)(\n|$)/g, '<h3>$1</h3>')
+                    .replace(/# (.*?)(\n|$)/g, '<h3>$1</h3>')
+                    // Bold text
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/### (.*?)\n/g, '<h3>$1</h3>')
-                    .replace(/## (.*?)\n/g, '<h3>$1</h3>')
-                    .replace(/\* (.*?)(\n|$)/g, '• $1$2');
+                    // Bullet points
+                    .replace(/^\* (.*?)$/gm, '• $1')
+                    .replace(/^- (.*?)$/gm, '• $1')
+                    // Number lists
+                    .replace(/^(\d+)\. (.*?)$/gm, '<strong>$1.</strong> $2')
+                    // Line breaks for sections
+                    .replace(/([A-Z][A-Z\s]+)(\n|$)/g, '<h3>$1</h3>')
+                    // Ensure proper line breaks
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n/g, '<br>');
+                
+                // Wrap in paragraph tags if not already formatted
+                if (!formattedText.includes('<h3>') && !formattedText.includes('<p>')) {
+                    formattedText = '<p>' + formattedText + '</p>';
+                } else if (formattedText.includes('<br>') && !formattedText.includes('<p>')) {
+                    formattedText = '<p>' + formattedText + '</p>';
+                }
                 
                 content.innerHTML = formattedText;
                 
