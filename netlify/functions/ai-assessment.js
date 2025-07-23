@@ -40,7 +40,7 @@ exports.handler = async (event, context) => {
       throw new Error('Invalid API key format - should start with sk-ant-');
     }
 
-    const { messages, systemPrompt } = JSON.parse(event.body);
+    const { messages, systemPrompt, maxTokens = 200 } = JSON.parse(event.body);
 
     console.log('Making request to Anthropic API...');
 
@@ -53,7 +53,7 @@ exports.handler = async (event, context) => {
       },
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 200,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages: messages
       })
