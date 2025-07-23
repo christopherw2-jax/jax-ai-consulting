@@ -1643,7 +1643,7 @@ IMPORTANT: Only after they answer question 5 should you acknowledge their respon
             async generateSolutionProposal() {
                 try {
                     // Create solution proposal prompt with pricing model
-                    const solutionPrompt = `Based on the assessment conversation, create a brief AI solution proposal for this business. 
+                    const solutionPrompt = `Based on the assessment conversation, create a comprehensive AI solution proposal for this business. 
 
 Business context: ${JSON.stringify(this.businessData)}
 
@@ -1660,10 +1660,10 @@ Instructions:
 2. Calculate their potential annual savings using their time value and estimated weekly savings
 3. Show their fee as 10% of annual savings
 4. Emphasize the no-risk, pay-for-performance model
-5. Keep it under 200 words with good formatting
+5. Provide detailed solution overview - don't worry about length
 6. End by asking if they'd like to schedule a consultation
 
-Use clear formatting with headers and bullet points for readability.`;
+Use clear formatting with headers and bullet points for readability. Be comprehensive and detailed.`;
 
                     this.addMessage('Let me analyze your needs and create a customized AI solution proposal...', 'thinking');
 
@@ -1693,7 +1693,8 @@ Use clear formatting with headers and bullet points for readability.`;
                         },
                         body: JSON.stringify({
                             messages: [{ role: 'user', content: solutionPrompt }],
-                            systemPrompt: 'You are an AI consultant creating solution proposals for small businesses.'
+                            systemPrompt: 'You are an AI consultant creating comprehensive solution proposals for small businesses.',
+                            maxTokens: 600  // Increased for longer solution proposals
                         })
                     });
 
