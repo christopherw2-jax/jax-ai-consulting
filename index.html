@@ -1506,43 +1506,140 @@ Let's start: Please tell me your full name, business name, and email address.`;
                     content: message
                 });
 
-                // Send email with assessment and solution
-                this.sendAssessmentEmail();
+                // Send assessment data to webhook
+                this.sendAssessmentToWebhook();
                 
                 // Show confirmation message
                 this.addMessage('Perfect! I\'ve sent your assessment details to JAX AI Consulting. Someone will reach out within 24 hours to schedule your consultation. Thank you for your interest!', 'ai');
                 
                 // Hide input section
                 document.getElementById('inputSection').style.display = 'none';
-                this.updateStatus('Assessment complete - Check your email for confirmation');
+                this.updateStatus('Assessment complete - You will be contacted within 24 hours');
             }
 
-            sendAssessmentEmail() {
-                const businessInfo = this.businessData.business_info || 'Not provided';
+            async sendAssessmentToWebhook() {
+                try {
+                    const functionUrl = window.location.hostname === 'localhost' 
+                        ? 'http://localhost:8888/.netlify/functions/ai-assessment'
+                        : '/.netlify/functions/ai-assessment';
+
+                    // Extract contact information from first response
+                    const contactInfo = this.businessData.contact_info || '';
+                    const emailMatch = contactInfo.match(/[\w\.-]+@[\w\.-]+\.\w+/);
+                    const email = emailMatch ? emailMatch[0] : '';
+                    
+                    // Build structured data payload
+                    const assessmentPayload = {
+                        businessData: this.businessData,
+                        conversationHistory: this.conversationHistory,
+                        solutionProposal: this.getSolutionFromConversation(),
+                        contactEmail: email,
+                        submittedAt: new Date().toISOString(),
+                        leadScore: this.calculateLeadScore()
+                    };
+
+                    const response = await fetch(functionUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            isConsultationRequest: true,
+                            assessmentData: assessmentPayload
+                        })
+                    });
+
+                    if (response.ok) {
+                        console.log('Assessment data sent to webhook successfully');
+                        
+                        // Still open email as backup
+                        this.openBackupEmail();
+                    } else {
+                        console.error('Webhook failed, using email backup');
+                        this.openBackupEmail();
+                    }
+
+                } catch (error) {
+                    console.error('Webhook error:', error);
+                    // Fallback to email
+                    this.openBackupEmail();
+                }
+            }
+
+            getSolutionFromConversation() {
+                // Find the AI solution proposal in conversation history
+                const solutionMessage = this.conversationHistory
+                    .reverse()
+                    .find(msg => msg.role === 'assistant' && msg.content.includes('AUTOMATION OPPORTUNITIES'));
+                
+                return solutionMessage ? solutionMessage.content : 'Solution proposal generated';
+            }
+
+            calculateLeadScore() {
+                let score = 25; // Base score for completing assessment
+                
+                // Score based on time value
+                const timeValue = this.extractTimeValue(this.businessData.time_value);
+                if (timeValue >= 100) score += 30;
+                else if (timeValue >= 50) score += 20;
+                else if (timeValue >= 25) score += 10;
+                
+                // Score based on time savings potential
+                const timeSavings = this.extractTimeSavings(this.businessData.time_savings);
+                if (timeSavings >= 10) score += 25;
+                else if (timeSavings >= 5) score += 15;
+                else if (timeSavings >= 2) score += 10;
+                
+                // Bonus for detailed pain points
+                if (this.businessData.pain_points && this.businessData.pain_points.length > 50) {
+                    score += 20;
+                }
+                
+                return Math.min(score, 100);
+            }
+
+            extractTimeValue(timeValueText) {
+                if (!timeValueText) return 0;
+                const matches = timeValueText.match(/\$?(\d+)/);
+                return matches ? parseInt(matches[1]) : 0;
+            }
+
+            extractTimeSavings(timeSavingsText) {
+                if (!timeSavingsText) return 0;
+                const matches = timeSavingsText.match(/(\d+)/);
+                return matches ? parseInt(matches[1]) : 0;
+            }
+
+            openBackupEmail() {
+                const businessInfo = this.businessData.contact_info || 'Not provided';
                 const painPoints = this.businessData.pain_points || 'Not provided';
                 const currentSolution = this.businessData.current_solution || 'Not provided';
                 const timeSavings = this.businessData.time_savings || 'Not provided';
                 const timeValue = this.businessData.time_value || 'Not provided';
 
-                const emailSubject = `New AI Assessment Lead - ${businessInfo}`;
+                const emailSubject = `🔥 HOT LEAD: AI Assessment Consultation Request - ${businessInfo}`;
                 
-                const emailBody = `New AI Assessment Lead wants to schedule a consultation!
+                const emailBody = `URGENT: New qualified lead wants consultation!
 
-BUSINESS ASSESSMENT:
-===================
-Business Info: ${businessInfo}
+CONTACT & BUSINESS INFO:
+======================
+${businessInfo}
+
+ASSESSMENT SUMMARY:
+==================
+Business Type: ${this.businessData.business_type || 'Not provided'}
 Pain Points: ${painPoints}
 Current Solutions: ${currentSolution}
 Potential Time Savings: ${timeSavings}
 Time Value: ${timeValue}
+Lead Score: ${this.calculateLeadScore()}/100
 
 FULL CONVERSATION:
 ==================
 ${this.conversationHistory.map(msg => `${msg.role.toUpperCase()}: ${msg.content}`).join('\n\n')}
 
-ACTION REQUIRED: Please reach out to schedule consultation within 24 hours.`;
+🎯 ACTION REQUIRED: Contact within 24 hours to schedule consultation!`;
 
-                // Open email client
                 const emailLink = `mailto:hello@jaxaiconsulting.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
                 window.open(emailLink, '_blank');
             }
