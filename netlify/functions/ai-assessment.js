@@ -40,8 +40,25 @@ exports.handler = async (event, context) => {
       throw new Error('Invalid API key format - should start with sk-ant-');
     }
 
-    const { messages, systemPrompt, maxTokens = 200 } = JSON.parse(event.body);
+    const requestData = JSON.parse(event.body);
+    const { messages, systemPrompt, maxTokens = 200, assessmentData, isConsultationRequest } = requestData;
 
+    // Handle consultation requests (webhook submission)
+    if (isConsultationRequest && assessmentData) {
+      console.log('Processing consultation request...');
+      await sendToWebhook(assessmentData);
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          message: 'Assessment data sent successfully' 
+        }),
+      };
+    }
+
+    // Handle regular AI conversation
     console.log('Making request to Anthropic API...');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -88,3 +105,82 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
+// Webhook function to send assessment data
+async function sendToWebhook(assessmentData) {
+  const webhookUrl = process.env.ZAPIER_WEBHOOK_URL; // We'll set this in Netlify env vars
+  
+  if (!webhookUrl) {
+    console.log('No webhook URL configured, skipping webhook send');
+    return;
+  }
+
+  try {
+    console.log('Sending data to webhook:', webhookUrl);
+    
+    const webhookPayload = {
+      timestamp: new Date().toISOString(),
+      source: 'JAX AI Assessment',
+      lead_data: assessmentData.businessData,
+      conversation_summary: assessmentData.conversationHistory,
+      solution_proposal: assessmentData.solutionProposal,
+      consultation_requested: true,
+      lead_score: calculateLeadScore(assessmentData.businessData)
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(webhookPayload)
+    });
+
+    if (response.ok) {
+      console.log('Webhook sent successfully');
+    } else {
+      console.error('Webhook failed:', response.status, await response.text());
+    }
+  } catch (error) {
+    console.error('Webhook error:', error);
+  }
+}
+
+// Calculate lead score based on assessment data
+function calculateLeadScore(businessData) {
+  let score = 0;
+  
+  // Base score for completing assessment
+  score += 25;
+  
+  // Scoring based on time value
+  const timeValue = extractTimeValue(businessData.time_value);
+  if (timeValue >= 100) score += 30;
+  else if (timeValue >= 50) score += 20;
+  else if (timeValue >= 25) score += 10;
+  
+  // Scoring based on time savings potential
+  const timeSavings = extractTimeSavings(businessData.time_savings);
+  if (timeSavings >= 10) score += 25;
+  else if (timeSavings >= 5) score += 15;
+  else if (timeSavings >= 2) score += 10;
+  
+  // Bonus for having current pain points
+  if (businessData.pain_points && businessData.pain_points.length > 50) {
+    score += 20;
+  }
+  
+  return Math.min(score, 100); // Cap at 100
+}
+
+function extractTimeValue(timeValueText) {
+  if (!timeValueText) return 0;
+  const matches = timeValueText.match(/\$?(\d+)/);
+  return matches ? parseInt(matches[1]) : 0;
+}
+
+function extractTimeSavings(timeSavingsText) {
+  if (!timeSavingsText) return 0;
+  const matches = timeSavingsText.match(/(\d+)/);
+  return matches ? parseInt(matches[1]) : 0;
+}
