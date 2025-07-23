@@ -25,13 +25,30 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    // Debug logging
+    console.log('Environment variables check:');
+    console.log('ANTHROPIC_API_KEY exists:', !!process.env.ANTHROPIC_API_KEY);
+    console.log('API key prefix:', process.env.ANTHROPIC_API_KEY ? process.env.ANTHROPIC_API_KEY.substring(0, 7) : 'undefined');
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error('ANTHROPIC_API_KEY environment variable is not set');
+    }
+
+    if (!apiKey.startsWith('sk-ant-')) {
+      throw new Error('Invalid API key format - should start with sk-ant-');
+    }
+
     const { messages, systemPrompt } = JSON.parse(event.body);
+
+    console.log('Making request to Anthropic API...');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY, // Set this in Netlify env vars
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
@@ -42,12 +59,16 @@ exports.handler = async (event, context) => {
       })
     });
 
+    console.log('Anthropic API response status:', response.status);
+
     if (!response.ok) {
       const errorData = await response.json();
+      console.error('Anthropic API error:', errorData);
       throw new Error(`API request failed: ${response.status} - ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
+    console.log('Success! Response received from Anthropic');
     
     return {
       statusCode: 200,
@@ -56,7 +77,7 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Function error:', error);
     return {
       statusCode: 500,
       headers,
