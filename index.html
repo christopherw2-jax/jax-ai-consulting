@@ -287,7 +287,172 @@
             font-weight: bold;
         }
 
-        /* Social Proof */
+        /* Pricing Section */
+        .pricing {
+            padding: 6rem 0;
+            background: #f8fafc;
+        }
+
+        .pricing h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+
+        .pricing-subtitle {
+            text-align: center;
+            font-size: 1.25rem;
+            color: #059669;
+            font-weight: 600;
+            margin-bottom: 4rem;
+        }
+
+        .pricing-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: start;
+            margin-bottom: 4rem;
+        }
+
+        .pricing-text h3 {
+            font-size: 1.75rem;
+            margin-bottom: 2rem;
+            color: #1e293b;
+        }
+
+        .pricing-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .pricing-step {
+            display: flex;
+            align-items: start;
+            gap: 1rem;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: #2563eb;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .step-content h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: #1e293b;
+        }
+
+        .step-content p {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+
+        .pricing-example {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+
+        .pricing-example h3 {
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+            color: #1e293b;
+            text-align: center;
+        }
+
+        .example-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .example-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .example-row:last-of-type {
+            border-bottom: none;
+        }
+
+        .example-row.total {
+            background: #f0fdf4;
+            border-top: 2px solid #059669;
+            font-weight: 700;
+        }
+
+        .example-label {
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .example-value {
+            color: #1e293b;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .example-row.total .example-value {
+            color: #059669;
+            font-size: 1.25rem;
+        }
+
+        .example-note {
+            background: #dbeafe;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .example-note p {
+            color: #1e40af;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-align: center;
+            margin: 0;
+        }
+
+        .pricing-guarantee {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-left: 4px solid #059669;
+        }
+
+        .pricing-guarantee h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #059669;
+        }
+
+        .pricing-guarantee p {
+            color: #64748b;
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
         .social-proof {
             padding: 6rem 0;
             background: #1e293b;
@@ -348,9 +513,6 @@
 
         .about-image {
             height: 400px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            overflow: hidden;
             position: relative;
         }
 
@@ -728,7 +890,8 @@
             }
 
             .problem-content,
-            .about-content {
+            .about-content,
+            .pricing-content {
                 grid-template-columns: 1fr;
                 gap: 2rem;
             }
@@ -772,10 +935,11 @@
             <div class="logo">JAX AI Consulting</div>
             <ul class="nav-links">
                 <li><a href="#services">Services</a></li>
+                <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#about">About</a></li>
                 <li><a href="#contact">Contact</a></li>
             </ul>
-            <button class="cta-button" onclick="openAssessment()">Free Assessment</button>
+            <button class="cta-button" onclick="openAssessment()">Get Your Free AI Assessment</button>
         </nav>
     </header>
 
@@ -785,7 +949,7 @@
             <h1>AI Solutions That Actually Work for Small Business</h1>
             <p>Help your retail shop, salon, or clinic save 10+ hours per week with simple AI automation that just works.</p>
             <div class="hero-buttons">
-                <button class="btn-primary" onclick="openAssessment()">Get Your Free 30-Minute AI Assessment</button>
+                <button class="btn-primary" onclick="openAssessment()">Get Your Free AI Assessment</button>
                 <a href="#services" class="btn-secondary">See How It Works</a>
             </div>
         </div>
@@ -868,7 +1032,79 @@
         </div>
     </section>
 
-    <!-- Social Proof -->
+    <!-- Pricing Section -->
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <h2>Pay for Performance Pricing</h2>
+            <p class="pricing-subtitle">You only pay when we prove we've saved you time and money</p>
+            
+            <div class="pricing-content">
+                <div class="pricing-text">
+                    <h3>How Our Unique Pricing Works</h3>
+                    <div class="pricing-steps">
+                        <div class="pricing-step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Free Consultation</h4>
+                                <p>We identify your pain points and you tell us what your time is worth per hour</p>
+                            </div>
+                        </div>
+                        <div class="pricing-step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>We Build Your Solution</h4>
+                                <p>We develop and deliver your complete AI automation system at no upfront cost</p>
+                            </div>
+                        </div>
+                        <div class="pricing-step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>You Confirm Time Savings</h4>
+                                <p>You tell us exactly how many hours per week our solution saves you</p>
+                            </div>
+                        </div>
+                        <div class="pricing-step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>You Pay 10% of Annual Savings</h4>
+                                <p>Your fee is just 10% of the money you save per year, includes 12 months of support</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="pricing-example">
+                    <h3>Real Example</h3>
+                    <div class="example-card">
+                        <div class="example-row">
+                            <span class="example-label">Your time value:</span>
+                            <span class="example-value">$50/hour</span>
+                        </div>
+                        <div class="example-row">
+                            <span class="example-label">Time saved weekly:</span>
+                            <span class="example-value">4 hours</span>
+                        </div>
+                        <div class="example-row">
+                            <span class="example-label">Annual savings:</span>
+                            <span class="example-value">$10,400</span>
+                        </div>
+                        <div class="example-row total">
+                            <span class="example-label">Your investment:</span>
+                            <span class="example-value">$1,040</span>
+                        </div>
+                        <div class="example-note">
+                            <p>That's a 10x return on investment, plus you get your time back to focus on growing your business!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pricing-guarantee">
+                <h3>Our No-Risk Guarantee</h3>
+                <p>We don't get paid until your solution is complete and you confirm it's saving you time. If we can't demonstrate measurable time savings, you pay nothing.</p>
+            </div>
+        </div>
+    </section>
     <section class="social-proof">
         <div class="container">
             <h2>Real Results from Real Businesses</h2>
@@ -904,7 +1140,7 @@
         <div class="container">
             <h2>Ready to Get 10+ Hours Back Every Week?</h2>
             <p>Let's talk about how AI can transform your business. No tech jargon, no pushy sales pitch - just practical solutions that work.</p>
-            <button class="btn-primary" onclick="openAssessment()">Schedule Your Free 30-Minute Assessment</button>
+            <button class="btn-primary" onclick="openAssessment()">Get Your Free AI Assessment</button>
         </div>
     </section>
 
