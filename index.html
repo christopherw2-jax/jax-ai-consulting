@@ -1659,11 +1659,12 @@ Instructions:
 1. Identify 2-3 specific AI automation opportunities based on their pain points
 2. Calculate their potential annual savings using their time value and estimated weekly savings
 3. Show their fee as 10% of annual savings
-4. Emphasize the no-risk, pay-for-performance model
-5. Provide detailed solution overview - don't worry about length
-6. End by asking if they'd like to schedule a consultation
+4. Provide implementation plan and timeline
+5. List solution benefits
+6. Emphasize the no-risk, pay-for-performance model
+7. ALWAYS end with: "Would you like to schedule an in-person consultation to discuss implementing this solution for your business?"
 
-Use clear formatting with headers and bullet points for readability. Be comprehensive and detailed.`;
+Use clear formatting with headers and bullet points. Ensure the response is complete and includes the consultation question.`;
 
                     this.addMessage('Let me analyze your needs and create a customized AI solution proposal...', 'thinking');
 
@@ -1694,7 +1695,7 @@ Use clear formatting with headers and bullet points for readability. Be comprehe
                         body: JSON.stringify({
                             messages: [{ role: 'user', content: solutionPrompt }],
                             systemPrompt: 'You are an AI consultant creating comprehensive solution proposals for small businesses.',
-                            maxTokens: 600  // Increased for longer solution proposals
+                            maxTokens: 1000  // Further increased for complete solution proposals
                         })
                     });
 
