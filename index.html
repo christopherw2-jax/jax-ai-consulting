@@ -1302,13 +1302,18 @@
                 this.isListening = false;
                 this.recognition = null;
                 this.currentQuestion = 1;
-                this.maxQuestions = 5;
+                this.maxQuestions = 6;
                 this.solutionProposalGenerated = false;
                 this.questionFlow = [
                     {
-                        id: 'intro',
-                        prompt: 'Tell me your name, location, and what type of business you run.',
-                        dataKey: 'business_info'
+                        id: 'contact_info',
+                        prompt: 'To get started, please tell me your full name, business name, and email address.',
+                        dataKey: 'contact_info'
+                    },
+                    {
+                        id: 'business_type',
+                        prompt: 'What type of business do you run and where are you located?',
+                        dataKey: 'business_type'
                     },
                     {
                         id: 'pain_points', 
@@ -1397,9 +1402,9 @@
             }
 
             startAssessment() {
-                const welcomeMessage = `Hi! I'm Claude, and I'll help JAX AI Consulting understand how we can best serve your business. I have 5 focused questions that should take just a few minutes.
+                const welcomeMessage = `Hi! I'm Claude, and I'll help JAX AI Consulting understand how we can best serve your business. I have 6 focused questions that should take just a few minutes.
 
-Let's start: Tell me your name, location, and what type of business you run.`;
+Let's start: Please tell me your full name, business name, and email address.`;
 
                 this.addMessage(welcomeMessage, 'ai');
                 this.updateStatus(`Question ${this.currentQuestion} of ${this.maxQuestions}`);
@@ -1538,7 +1543,7 @@ ${this.conversationHistory.map(msg => `${msg.role.toUpperCase()}: ${msg.content}
 ACTION REQUIRED: Please reach out to schedule consultation within 24 hours.`;
 
                 // Open email client
-                const emailLink = `mailto:clwashin@gmail.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+                const emailLink = `mailto:hello@jaxaiconsulting.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
                 window.open(emailLink, '_blank');
             }
 
@@ -1825,7 +1830,8 @@ CRITICAL FORMATTING: Use clear section headers, bullet points, and line breaks f
 
             formatLabel(key) {
                 const labels = {
-                    business_info: 'Business Information',
+                    contact_info: 'Contact Information',
+                    business_type: 'Business Type & Location',
                     pain_points: 'Current Pain Points',
                     current_solution: 'Current Solutions',
                     time_savings: 'Potential Time Savings',
@@ -1841,7 +1847,7 @@ CRITICAL FORMATTING: Use clear section headers, bullet points, and line breaks f
 
                 const emailBody = `Hi JAX AI Consulting,\n\nI completed your AI assessment. Here's our conversation:\n\n${conversationSummary}\n\nI'm interested in learning more about AI solutions for my business.\n\nBest regards`;
                 
-                const emailLink = `mailto:clwashin@gmail.com?subject=${encodeURIComponent('AI Assessment Results')}&body=${encodeURIComponent(emailBody)}`;
+                const emailLink = `mailto:hello@jaxaiconsulting.com?subject=${encodeURIComponent('AI Assessment Results')}&body=${encodeURIComponent(emailBody)}`;
                 
                 document.getElementById('emailResultsButton').href = emailLink;
             }
