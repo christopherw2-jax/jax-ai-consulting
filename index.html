@@ -1211,6 +1211,16 @@ Let's start: Tell me your name, location, and what type of business you run.`;
                 this.addMessage(message, 'user');
                 input.value = '';
 
+                // Check if this is a response to consultation question
+                if (this.currentQuestion > this.maxQuestions) {
+                    if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('schedule') || message.toLowerCase().includes('consultation')) {
+                        this.handleConsultationRequest(message);
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Send';
+                        return;
+                    }
+                }
+
                 this.addMessage('Thinking...', 'thinking');
 
                 try {
@@ -1240,6 +1250,58 @@ Let's start: Tell me your name, location, and what type of business you run.`;
                 }
             }
 
+            handleConsultationRequest(message) {
+                // Add user response to conversation
+                this.conversationHistory.push({
+                    role: 'user',
+                    content: message
+                });
+
+                // Send email with assessment and solution
+                this.sendAssessmentEmail();
+                
+                // Show confirmation message
+                this.addMessage('Perfect! I\'ve sent your assessment details to JAX AI Consulting. Someone will reach out within 24 hours to schedule your consultation. Thank you for your interest!', 'ai');
+                
+                // Hide input section
+                document.getElementById('inputSection').style.display = 'none';
+                this.updateStatus('Assessment complete - Check your email for confirmation');
+            }
+
+            sendAssessmentEmail() {
+                const businessInfo = this.businessData.business_info || 'Not provided';
+                const painPoints = this.businessData.pain_points || 'Not provided';
+                const currentSolution = this.businessData.current_solution || 'Not provided';
+                const timeSavings = this.businessData.time_savings || 'Not provided';
+                const timeValue = this.businessData.time_value || 'Not provided';
+
+                const emailSubject = `New AI Assessment Lead - ${businessInfo}`;
+                
+                const emailBody = `New AI Assessment Lead wants to schedule a consultation!
+
+BUSINESS ASSESSMENT:
+===================
+Business Info: ${businessInfo}
+Pain Points: ${painPoints}
+Current Solutions: ${currentSolution}
+Potential Time Savings: ${timeSavings}
+Time Value: ${timeValue}
+
+FULL CONVERSATION:
+==================
+${this.conversationHistory.map(msg => `${msg.role.toUpperCase()}: ${msg.content}`).join('\n\n')}
+
+ACTION REQUIRED: Please reach out to schedule consultation within 24 hours.`;
+
+                // Open email client
+                const emailLink = `mailto:hello@jaxaiconsulting.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+                window.open(emailLink, '_blank');
+            }
+
+            checkAssessmentProgress() {
+                // Using structured question flow instead
+            }
+
             async getAIResponse(userMessage) {
                 this.conversationHistory.push({
                     role: 'user',
@@ -1252,21 +1314,20 @@ Current question: ${this.currentQuestion}/5
 Question focus: ${this.questionFlow[this.currentQuestion - 1]?.prompt}
 
 Guidelines:
-- Keep responses under 100 words
-- Ask ONE focused follow-up question based on their response
+- Keep responses under 80 words
+- Ask ONLY the next question in the sequence - no follow-up questions
 - Be conversational but direct
-- Capture key business data for AI automation opportunities
-- After they answer each question, move to the next question in the flow
-- If they've answered the current question adequately, proceed to the next
+- Move immediately to the next question after they answer
+- Do NOT ask additional follow-up questions beyond the 5 core questions
 
-Question flow:
-1. Name, location, business type
-2. Current pain points/time drains
-3. Current solutions in place
-4. Potential time savings if automated
-5. Value they place on their time per hour
+Question flow (ask exactly these):
+1. Tell me your name, location, and what type of business you run.
+2. What current pain points or tasks are taking the most time or costing you revenue?
+3. What solutions do you currently have in place for these challenges, or are you handling everything manually?
+4. If we could automate or streamline these processes, how many hours per week do you think you could recapture?
+5. What value do you put on your time per hour? This helps us calculate the ROI of potential solutions.
 
-If this is question 5 and they've answered, provide a summary of a potential solution using AI to solve their identified problem.`;
+Only move to the next question when the current one is adequately answered. If this is question 5 and they've provided their time value, proceed to generate a solution proposal.`;
 
                 try {
                     // Call your backend function - update this URL to match your Netlify site
@@ -1326,14 +1387,81 @@ If this is question 5 and they've answered, provide a summary of a potential sol
                     this.currentQuestion++;
                     this.updateStatus(`Question ${this.currentQuestion} of ${this.maxQuestions}`);
                 } else {
+                    // All 5 questions completed - generate solution proposal
+                    this.updateStatus('Generating your AI solution proposal...');
                     setTimeout(() => {
-                        this.showSummary();
+                        this.generateSolutionProposal();
                     }, 1500);
                 }
             }
 
-            checkAssessmentProgress() {
-                // Using structured question flow instead
+            async generateSolutionProposal() {
+                try {
+                    // Create solution proposal prompt
+                    const solutionPrompt = `Based on the assessment conversation, create a brief AI solution proposal for this business. 
+
+Business context: ${JSON.stringify(this.businessData)}
+
+Instructions:
+1. Identify 2-3 specific AI automation opportunities based on their pain points
+2. Estimate time savings and ROI using their stated hourly value
+3. Propose a practical implementation approach
+4. Keep it under 200 words
+5. End by asking if they'd like to schedule a consultation to discuss this further
+
+Be specific and actionable, not generic.`;
+
+                    this.addMessage('Let me analyze your needs and create a customized AI solution proposal...', 'thinking');
+
+                    const response = await this.getAISolutionResponse(solutionPrompt);
+                    this.removeLastMessage();
+                    this.addMessage(response, 'ai');
+                    
+                    // Update status to indicate they can respond about consultation
+                    this.updateStatus('Please let me know if you\'d like to schedule a consultation');
+
+                } catch (error) {
+                    this.removeLastMessage();
+                    this.showError('Error generating solution proposal. Please refresh and try again.');
+                }
+            }
+
+            async getAISolutionResponse(solutionPrompt) {
+                try {
+                    const functionUrl = window.location.hostname === 'localhost' 
+                        ? 'http://localhost:8888/.netlify/functions/ai-assessment'
+                        : '/.netlify/functions/ai-assessment';
+
+                    const response = await fetch(functionUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            messages: [{ role: 'user', content: solutionPrompt }],
+                            systemPrompt: 'You are an AI consultant creating solution proposals for small businesses.'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Backend request failed with status ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const aiResponse = data.content[0].text;
+
+                    // Add to conversation history for email
+                    this.conversationHistory.push({
+                        role: 'assistant',
+                        content: aiResponse
+                    });
+
+                    return aiResponse;
+
+                } catch (error) {
+                    console.error('Solution API Error:', error);
+                    throw error;
+                }
             }
 
             addMessage(text, type) {
