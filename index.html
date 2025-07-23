@@ -1303,6 +1303,7 @@
                 this.recognition = null;
                 this.currentQuestion = 1;
                 this.maxQuestions = 5;
+                this.solutionProposalGenerated = false;
                 this.questionFlow = [
                     {
                         id: 'intro',
@@ -1447,10 +1448,16 @@ Let's start: Tell me your name, location, and what type of business you run.`;
                 this.addMessage(message, 'user');
                 input.value = '';
 
-                // Check if this is a response to consultation question
-                if (this.currentQuestion > this.maxQuestions) {
+                // Check if this is a response to consultation question (after solution proposal)
+                if (this.solutionProposalGenerated) {
                     if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('schedule') || message.toLowerCase().includes('consultation')) {
                         this.handleConsultationRequest(message);
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Send';
+                        return;
+                    } else {
+                        // Just acknowledge their response without repeating the proposal
+                        this.addMessage('Thank you for your response. Let me know if you have any questions or if you\'d like to schedule a consultation!', 'ai');
                         submitButton.disabled = false;
                         submitButton.textContent = 'Send';
                         return;
@@ -1463,7 +1470,8 @@ Let's start: Tell me your name, location, and what type of business you run.`;
                     const response = await this.getAIResponse(message);
                     this.removeLastMessage();
                     this.addMessage(response, 'ai');
-                    this.checkAssessmentProgress();
+                    
+                    // Don't call checkAssessmentProgress - let advanceQuestion handle the flow
                 } catch (error) {
                     this.removeLastMessage();
                     console.error('Full error details:', error);
@@ -1549,12 +1557,13 @@ ACTION REQUIRED: Please reach out to schedule consultation within 24 hours.`;
 Current question: ${this.currentQuestion}/5
 Question focus: ${this.questionFlow[this.currentQuestion - 1]?.prompt}
 
-Guidelines:
+Critical Guidelines:
 - Keep responses under 80 words
 - Ask ONLY the next question in the sequence - no follow-up questions
 - Be conversational but direct
 - Move immediately to the next question after they answer
 - Do NOT ask additional follow-up questions beyond the 5 core questions
+- Wait for their response to question 5 before generating any solution
 
 Question flow (ask exactly these):
 1. Tell me your name, location, and what type of business you run.
@@ -1563,7 +1572,7 @@ Question flow (ask exactly these):
 4. If we could automate or streamline these processes, how many hours per week do you think you could recapture?
 5. What value do you put on your time per hour? This helps us calculate the ROI of potential solutions.
 
-Only move to the next question when the current one is adequately answered. If this is question 5 and they've provided their time value, proceed to generate a solution proposal.`;
+IMPORTANT: Only after they answer question 5 should you acknowledge their response and indicate that you'll create a solution proposal. Do NOT generate the proposal until they've answered question 5.`;
 
                 try {
                     // Call your backend function - update this URL to match your Netlify site
@@ -1633,19 +1642,28 @@ Only move to the next question when the current one is adequately answered. If t
 
             async generateSolutionProposal() {
                 try {
-                    // Create solution proposal prompt
+                    // Create solution proposal prompt with pricing model
                     const solutionPrompt = `Based on the assessment conversation, create a brief AI solution proposal for this business. 
 
 Business context: ${JSON.stringify(this.businessData)}
 
+IMPORTANT - Include JAX AI Consulting's Pay-for-Performance Pricing Model:
+- No upfront costs - we build the solution first
+- Client only pays AFTER the solution is delivered and working
+- Fee is 10% of their confirmed annual time savings
+- Example: If they save 4 hours/week at $50/hour = $10,400 annual savings = $1,040 fee
+- Includes 12 months of ongoing support
+- If we can't demonstrate measurable time savings, they pay nothing
+
 Instructions:
 1. Identify 2-3 specific AI automation opportunities based on their pain points
-2. Estimate time savings and ROI using their stated hourly value
-3. Propose a practical implementation approach
-4. Keep it under 200 words
-5. End by asking if they'd like to schedule a consultation to discuss this further
+2. Calculate their potential annual savings using their time value and estimated weekly savings
+3. Show their fee as 10% of annual savings
+4. Emphasize the no-risk, pay-for-performance model
+5. Keep it under 200 words with good formatting
+6. End by asking if they'd like to schedule a consultation
 
-Be specific and actionable, not generic.`;
+Use clear formatting with headers and bullet points for readability.`;
 
                     this.addMessage('Let me analyze your needs and create a customized AI solution proposal...', 'thinking');
 
@@ -1653,7 +1671,7 @@ Be specific and actionable, not generic.`;
                     this.removeLastMessage();
                     this.addMessage(response, 'ai');
                     
-                    // Update status to indicate they can respond about consultation
+                    this.solutionProposalGenerated = true;
                     this.updateStatus('Please let me know if you\'d like to schedule a consultation');
 
                 } catch (error) {
@@ -1717,7 +1735,16 @@ Be specific and actionable, not generic.`;
                 }
                 
                 const content = document.createElement('div');
-                content.textContent = text;
+                content.className = 'message-content';
+                
+                // Convert markdown-style formatting to HTML
+                let formattedText = text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/### (.*?)\n/g, '<h3>$1</h3>')
+                    .replace(/## (.*?)\n/g, '<h3>$1</h3>')
+                    .replace(/\* (.*?)(\n|$)/g, '• $1$2');
+                
+                content.innerHTML = formattedText;
                 
                 message.appendChild(label);
                 message.appendChild(content);
