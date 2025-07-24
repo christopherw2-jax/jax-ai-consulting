@@ -1472,51 +1472,42 @@ Let's start: What is your full name?`;
                 if (this.solutionProposalGenerated) {
                     if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('schedule') || message.toLowerCase().includes('consultation')) {
                         this.handleConsultationRequest(message);
-                        submitButton.disabled = false;
-                        submitButton.textContent = 'Send';
-                        return;
                     } else {
-                        // Just acknowledge their response without repeating the proposal
                         this.addMessage('Thank you for your response. Let me know if you have any questions or if you\'d like to schedule a consultation!', 'ai');
-                        submitButton.disabled = false;
-                        submitButton.textContent = 'Send';
-                        return;
                     }
-                }
-
-                // Check if this is the final question (time value)
-                if (this.currentQuestion === this.maxQuestions) {
-                    // Store the answer and immediately move to solution
-                    this.storeQuestionResponse(message);
-                    this.advanceQuestion(); // This will trigger solution generation
                     submitButton.disabled = false;
                     submitButton.textContent = 'Send';
                     return;
                 }
 
+                // Store the current answer
+                this.storeQuestionResponse(message);
+
+                // Check if this was the final question
+                if (this.currentQuestion >= this.maxQuestions) {
+                    // Final question answered - go directly to solution
+                    this.addMessage('Thank you! I have all the information I need. Let me prepare your customized AI solution proposal...', 'ai');
+                    this.updateStatus('Generating your comprehensive solution proposal...');
+                    setTimeout(() => {
+                        this.generateSolutionProposal();
+                    }, 1000);
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Send';
+                    return;
+                }
+
+                // Regular question flow - get next question from AI
                 this.addMessage('Thinking...', 'thinking');
 
                 try {
                     const response = await this.getAIResponse(message);
                     this.removeLastMessage();
                     this.addMessage(response, 'ai');
+                    this.advanceQuestion();
                     
                 } catch (error) {
                     this.removeLastMessage();
-                    console.error('Full error details:', error);
-                    
-                    let errorMessage = 'Sorry, there was an error. ';
-                    if (error.message.includes('Invalid API key')) {
-                        errorMessage += 'Please check your API key is correct and starts with "sk-ant-".';
-                    } else if (error.message.includes('Rate limit')) {
-                        errorMessage += 'Too many requests. Please wait a moment and try again.';
-                    } else if (error.message.includes('credits') || error.message.includes('billing')) {
-                        errorMessage += 'Please check your Anthropic account has sufficient credits.';
-                    } else {
-                        errorMessage += `Details: ${error.message}`;
-                    }
-                    
-                    this.showError(errorMessage);
+                    this.showError('Sorry, there was an error. Please try again.');
                 } finally {
                     submitButton.disabled = false;
                     submitButton.textContent = 'Send';
@@ -1769,14 +1760,9 @@ IMPORTANT: Only after they answer question 5 should you acknowledge their respon
                 if (this.currentQuestion < this.maxQuestions) {
                     this.currentQuestion++;
                     this.updateStatus(`Question ${this.currentQuestion} of ${this.maxQuestions}`);
-                } else {
-                    // All 9 questions completed - immediately generate solution proposal
-                    this.updateStatus('Generating your AI solution proposal...');
-                    // Don't wait for Claude to respond, just generate the solution immediately
-                    setTimeout(() => {
-                        this.generateSolutionProposal();
-                    }, 500);
                 }
+                // Remove the automatic solution generation from here
+                // It's now handled in sendMessage() when currentQuestion >= maxQuestions
             }
 
             async generateSolutionProposal() {
