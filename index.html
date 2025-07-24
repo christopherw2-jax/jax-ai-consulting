@@ -1484,6 +1484,16 @@ Let's start: What is your full name?`;
                     }
                 }
 
+                // Check if this is the final question (time value)
+                if (this.currentQuestion === this.maxQuestions) {
+                    // Store the answer and immediately move to solution
+                    this.storeQuestionResponse(message);
+                    this.advanceQuestion(); // This will trigger solution generation
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Send';
+                    return;
+                }
+
                 this.addMessage('Thinking...', 'thinking');
 
                 try {
@@ -1491,7 +1501,6 @@ Let's start: What is your full name?`;
                     this.removeLastMessage();
                     this.addMessage(response, 'ai');
                     
-                    // Don't call checkAssessmentProgress - let advanceQuestion handle the flow
                 } catch (error) {
                     this.removeLastMessage();
                     console.error('Full error details:', error);
@@ -1731,9 +1740,17 @@ IMPORTANT: Only after they answer question 5 should you acknowledge their respon
                     });
 
                     this.storeQuestionResponse(userMessage);
-                    this.advanceQuestion();
-
-                    return aiResponse;
+                    
+                    // Check if this was the last question
+                    if (this.currentQuestion >= this.maxQuestions) {
+                        // Skip the AI response for the last question, go straight to solution
+                        this.advanceQuestion();
+                        return aiResponse;
+                    } else {
+                        // Normal flow - advance to next question
+                        this.advanceQuestion();
+                        return aiResponse;
+                    }
 
                 } catch (error) {
                     console.error('API Error:', error);
@@ -1753,11 +1770,12 @@ IMPORTANT: Only after they answer question 5 should you acknowledge their respon
                     this.currentQuestion++;
                     this.updateStatus(`Question ${this.currentQuestion} of ${this.maxQuestions}`);
                 } else {
-                    // All 5 questions completed - generate solution proposal
+                    // All 9 questions completed - immediately generate solution proposal
                     this.updateStatus('Generating your AI solution proposal...');
+                    // Don't wait for Claude to respond, just generate the solution immediately
                     setTimeout(() => {
                         this.generateSolutionProposal();
-                    }, 1500);
+                    }, 500);
                 }
             }
 
