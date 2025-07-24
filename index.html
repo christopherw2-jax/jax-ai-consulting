@@ -1419,7 +1419,7 @@
             startAssessment() {
                 const welcomeMessage = `Hi! I'm Claude, and I'll help JAX AI Consulting understand how we can best serve your business. I have 9 focused questions that should take just a few minutes.
 
-Let's start: What is your full name?`;
+Question 1: What is your full name?`;
 
                 this.addMessage(welcomeMessage, 'ai');
                 this.updateStatus(`Question ${this.currentQuestion} of ${this.maxQuestions}`);
@@ -1496,21 +1496,19 @@ Let's start: What is your full name?`;
                     return;
                 }
 
-                // Regular question flow - get next question from AI
-                this.addMessage('Thinking...', 'thinking');
+                // Move to next question automatically (no AI call needed for simple questions)
+                this.advanceQuestion();
+                this.askNextQuestion();
+                
+                submitButton.disabled = false;
+                submitButton.textContent = 'Send';
+            }
 
-                try {
-                    const response = await this.getAIResponse(message);
-                    this.removeLastMessage();
-                    this.addMessage(response, 'ai');
-                    this.advanceQuestion();
-                    
-                } catch (error) {
-                    this.removeLastMessage();
-                    this.showError('Sorry, there was an error. Please try again.');
-                } finally {
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Send';
+            askNextQuestion() {
+                if (this.currentQuestion <= this.maxQuestions) {
+                    const currentQ = this.questionFlow[this.currentQuestion - 1];
+                    const questionText = `Question ${this.currentQuestion}: ${currentQ.prompt}`;
+                    this.addMessage(questionText, 'ai');
                 }
             }
 
