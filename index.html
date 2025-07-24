@@ -1302,13 +1302,28 @@
                 this.isListening = false;
                 this.recognition = null;
                 this.currentQuestion = 1;
-                this.maxQuestions = 6;
+                this.maxQuestions = 9;
                 this.solutionProposalGenerated = false;
                 this.questionFlow = [
                     {
-                        id: 'contact_info',
-                        prompt: 'To get started, please tell me your full name, business name, and email address.',
-                        dataKey: 'contact_info'
+                        id: 'contact_name',
+                        prompt: 'What is your full name?',
+                        dataKey: 'contact_name'
+                    },
+                    {
+                        id: 'business_name',
+                        prompt: 'What is your business name?',
+                        dataKey: 'business_name'
+                    },
+                    {
+                        id: 'contact_email',
+                        prompt: 'What is your email address?',
+                        dataKey: 'contact_email'
+                    },
+                    {
+                        id: 'contact_phone',
+                        prompt: 'What is your phone number?',
+                        dataKey: 'contact_phone'
                     },
                     {
                         id: 'business_type',
@@ -1402,9 +1417,9 @@
             }
 
             startAssessment() {
-                const welcomeMessage = `Hi! I'm Claude, and I'll help JAX AI Consulting understand how we can best serve your business. I have 6 focused questions that should take just a few minutes.
+                const welcomeMessage = `Hi! I'm Claude, and I'll help JAX AI Consulting understand how we can best serve your business. I have 9 focused questions that should take just a few minutes.
 
-Let's start: Please tell me your full name, business name, and email address.`;
+Let's start: What is your full name?`;
 
                 this.addMessage(welcomeMessage, 'ai');
                 this.updateStatus(`Question ${this.currentQuestion} of ${this.maxQuestions}`);
@@ -1523,17 +1538,15 @@ Let's start: Please tell me your full name, business name, and email address.`;
                         ? 'http://localhost:8888/.netlify/functions/ai-assessment'
                         : '/.netlify/functions/ai-assessment';
 
-                    // Extract contact information from first response
-                    const contactInfo = this.businessData.contact_info || '';
-                    const emailMatch = contactInfo.match(/[\w\.-]+@[\w\.-]+\.\w+/);
-                    const email = emailMatch ? emailMatch[0] : '';
-                    
-                    // Build structured data payload
+                    // Build structured data payload with separate fields
                     const assessmentPayload = {
                         businessData: this.businessData,
                         conversationHistory: this.conversationHistory,
                         solutionProposal: this.getSolutionFromConversation(),
-                        contactEmail: email,
+                        contactName: this.businessData.contact_name || '',
+                        businessName: this.businessData.business_name || '',
+                        contactEmail: this.businessData.contact_email || '',
+                        contactPhone: this.businessData.contact_phone || '',
                         submittedAt: new Date().toISOString(),
                         leadScore: this.calculateLeadScore()
                     };
@@ -1611,19 +1624,25 @@ Let's start: Please tell me your full name, business name, and email address.`;
             }
 
             openBackupEmail() {
-                const businessInfo = this.businessData.contact_info || 'Not provided';
+                const contactName = this.businessData.contact_name || 'Not provided';
+                const businessName = this.businessData.business_name || 'Not provided';
+                const contactEmail = this.businessData.contact_email || 'Not provided';
+                const contactPhone = this.businessData.contact_phone || 'Not provided';
                 const painPoints = this.businessData.pain_points || 'Not provided';
                 const currentSolution = this.businessData.current_solution || 'Not provided';
                 const timeSavings = this.businessData.time_savings || 'Not provided';
                 const timeValue = this.businessData.time_value || 'Not provided';
 
-                const emailSubject = `🔥 HOT LEAD: AI Assessment Consultation Request - ${businessInfo}`;
+                const emailSubject = `🔥 HOT LEAD: ${contactName} from ${businessName} (Score: ${this.calculateLeadScore()}/100)`;
                 
                 const emailBody = `URGENT: New qualified lead wants consultation!
 
-CONTACT & BUSINESS INFO:
-======================
-${businessInfo}
+CONTACT INFORMATION:
+===================
+Name: ${contactName}
+Business: ${businessName}
+Email: ${contactEmail}
+Phone: ${contactPhone}
 
 ASSESSMENT SUMMARY:
 ==================
@@ -1640,7 +1659,7 @@ ${this.conversationHistory.map(msg => `${msg.role.toUpperCase()}: ${msg.content}
 
 🎯 ACTION REQUIRED: Contact within 24 hours to schedule consultation!`;
 
-                const emailLink = `mailto:clwashin@gmail.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+                const emailLink = `mailto:hello@jaxaiconsulting.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
                 window.open(emailLink, '_blank');
             }
 
@@ -1927,7 +1946,10 @@ CRITICAL FORMATTING: Use clear section headers, bullet points, and line breaks f
 
             formatLabel(key) {
                 const labels = {
-                    contact_info: 'Contact Information',
+                    contact_name: 'Contact Name',
+                    business_name: 'Business Name',
+                    contact_email: 'Email Address',
+                    contact_phone: 'Phone Number',
                     business_type: 'Business Type & Location',
                     pain_points: 'Current Pain Points',
                     current_solution: 'Current Solutions',
@@ -1944,7 +1966,7 @@ CRITICAL FORMATTING: Use clear section headers, bullet points, and line breaks f
 
                 const emailBody = `Hi JAX AI Consulting,\n\nI completed your AI assessment. Here's our conversation:\n\n${conversationSummary}\n\nI'm interested in learning more about AI solutions for my business.\n\nBest regards`;
                 
-                const emailLink = `mailto:clwashin@gmail.com?subject=${encodeURIComponent('AI Assessment Results')}&body=${encodeURIComponent(emailBody)}`;
+                const emailLink = `mailto:hello@jaxaiconsulting.com?subject=${encodeURIComponent('AI Assessment Results')}&body=${encodeURIComponent(emailBody)}`;
                 
                 document.getElementById('emailResultsButton').href = emailLink;
             }
