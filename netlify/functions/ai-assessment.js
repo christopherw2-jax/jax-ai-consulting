@@ -121,11 +121,22 @@ async function sendToWebhook(assessmentData) {
     const webhookPayload = {
       timestamp: new Date().toISOString(),
       source: 'JAX AI Assessment',
-      lead_data: assessmentData.businessData,
+      // Individual contact fields for easier mapping
+      contactName: assessmentData.contactName,
+      businessName: assessmentData.businessName,
+      contactEmail: assessmentData.contactEmail,
+      contactPhone: assessmentData.contactPhone,
+      // Business data
+      businessType: assessmentData.businessData.business_type,
+      painPoints: assessmentData.businessData.pain_points,
+      currentSolution: assessmentData.businessData.current_solution,
+      timeSavings: assessmentData.businessData.time_savings,
+      timeValue: assessmentData.businessData.time_value,
+      // Meta data
+      lead_score: assessmentData.leadScore,
       conversation_summary: assessmentData.conversationHistory,
       solution_proposal: assessmentData.solutionProposal,
-      consultation_requested: true,
-      lead_score: calculateLeadScore(assessmentData.businessData)
+      consultation_requested: true
     };
 
     const response = await fetch(webhookUrl, {
