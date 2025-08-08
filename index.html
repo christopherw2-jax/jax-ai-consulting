@@ -677,21 +677,25 @@ ${missingData}
 NAME USAGE: ${useName ? `Use their name (${name}) naturally in this response` : 'Do not use their name in this response - keep it conversational without repeating their name'}
 
 CONVERSATION GUIDELINES:
-1. Reference their specific business (${businessName}) and location when relevant
-2. Ask business-specific questions based on their type of business (${businessType})
-3. CRITICAL: If missing time value, ask specifically: "What do you value your time at per hour? This helps me calculate the exact ROI for your business."
-4. Ask follow-up questions that feel natural but capture missing data
-5. Keep responses under 80 words to maintain conversation flow
+1. ASK ONLY ONE PRIORITY QUESTION PER RESPONSE - never combine multiple questions
+2. Reference their specific business (${businessName}) and location when relevant
+3. Ask business-specific questions based on their type of business (${businessType})
+4. CRITICAL MISSING DATA PRIORITIES:
+   - If missing time value, ask ONLY: "What do you value your time at per hour? This helps me calculate the exact ROI for your business."
+   - If missing time savings, ask ONLY: "How many hours per week do you think automation could save you?"
+   - If missing other data, ask one focused question about the most important missing piece
+5. Keep responses under 60 words - focus on ONE question only
 6. Show genuine interest in their specific business challenges
 7. Make recommendations relevant to their business type and location
 
 RESPONSE STRATEGY:
+- Ask ONE focused question that captures the highest priority missing data
 - Reference their business specifically when relevant: "For ${businessName}..." or "At your ${businessType}..."
-- Ask industry-specific questions based on ${businessType}
-- Connect your questions to their previous answers
+- Connect your question to their previous answers
 - Don't overuse their name - be natural and conversational
+- NEVER ask multiple questions in the same response
 
-Remember: This should feel like a personalized consultation with someone who knows their business, but don't repeat their name in every response.`;
+Remember: This should feel like a natural conversation with focused, single questions that build on each other.`;
         }
 
         try {
@@ -865,10 +869,11 @@ Remember: This should feel like a personalized consultation with someone who kno
             }
         }
 
-        // Extract time savings
+        // Extract time savings - CRITICAL: Must ask specific question for this
         if (!this.requiredData.time_savings.captured) {
             const timeMatch = message.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)/i);
-            if (timeMatch || lowerMessage.includes('hour') || lowerMessage.includes('time')) {
+            const savingsIndicators = ['save', 'hour', 'time', 'week', 'automation', 'could save'];
+            if (timeMatch || savingsIndicators.some(indicator => lowerMessage.includes(indicator))) {
                 this.businessData.time_savings = message;
                 this.requiredData.time_savings.captured = true;
             }
@@ -877,7 +882,8 @@ Remember: This should feel like a personalized consultation with someone who kno
         // CRITICAL: Enhanced time value extraction - this is required!
         if (!this.requiredData.time_value.captured) {
             const valueMatch = message.match(/\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
-            if (valueMatch || lowerMessage.includes('dollar') || lowerMessage.includes('worth') || lowerMessage.includes('hour')) {
+            const valueIndicators = ['dollar', 'worth', 'hour', 'value', 'time'];
+            if (valueMatch || valueIndicators.some(indicator => lowerMessage.includes(indicator))) {
                 this.businessData.time_value = message;
                 this.requiredData.time_value.captured = true;
             }
@@ -1157,16 +1163,12 @@ PROPOSAL STRUCTURE:
    - Reference their business name in examples
    - Explain how each solution addresses their specific challenges
 
-4. **LOCAL ADVANTAGE**
-   - Mention their location and local market benefits
-   - Reference Jacksonville-based support
-
-5. **IMPLEMENTATION TIMELINE**
+4. **IMPLEMENTATION TIMELINE**
    - 6-week timeline with specific phases
    - Reference their business name in timeline examples
    - Emphasize pay-for-performance model
 
-6. **NEXT STEPS**
+5. **NEXT STEPS**
    - End with ONLY: "Would you like to schedule an in-person consultation to discuss implementing this solution for [business name]?"
    - NO signature, NO placeholders, NO "warm regards"
 
