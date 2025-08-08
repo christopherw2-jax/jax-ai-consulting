@@ -403,7 +403,7 @@
             }
         }
 
-// Enhanced DynamicAIAssessment class with priority early data capture
+// Complete Fixed DynamicAIAssessment class addressing all feedback issues
 class DynamicAIAssessment {
     constructor() {
         this.conversationHistory = [];
@@ -413,6 +413,7 @@ class DynamicAIAssessment {
         this.solutionProposalGenerated = false;
         this.totalTokensUsed = 0;
         this.conversationPhase = 'introduction'; // introduction, details, completion
+        this.nameUsageCount = 0; // Track how often we use their name
         
         // Required data points with priority order for early capture
         this.requiredData = {
@@ -425,7 +426,7 @@ class DynamicAIAssessment {
             pain_points: { captured: false, priority: 7, label: 'Main Pain Points/Challenges', earlyCapture: false },
             current_solution: { captured: false, priority: 8, label: 'Current Solutions in Place', earlyCapture: false },
             time_savings: { captured: false, priority: 9, label: 'Potential Weekly Time Savings', earlyCapture: false },
-            time_value: { captured: false, priority: 10, label: 'Hourly Time Value', earlyCapture: false }
+            time_value: { captured: false, priority: 10, label: 'Hourly Time Value', earlyCapture: false, required: true }
         };
         
         window.assessmentSystem = this;
@@ -558,6 +559,12 @@ What's your name, and could you tell me the name and location of your business?`
             .every(item => item.captured);
     }
 
+    shouldUseName() {
+        // Use name more strategically: first time, then every 3-4 exchanges, and at key moments
+        this.nameUsageCount++;
+        return this.nameUsageCount === 1 || this.nameUsageCount % 4 === 0 || this.solutionProposalGenerated;
+    }
+
     async sendMessage() {
         const input = document.getElementById('textInput');
         const message = input.value.trim();
@@ -590,16 +597,18 @@ What's your name, and could you tell me the name and location of your business?`
             // Update conversation phase based on data captured
             this.updateConversationPhase();
             
-            // Get AI response that intelligently continues the conversation
-            const aiResponse = await this.getIntelligentAIResponse(message);
-            this.addMessage(aiResponse, 'ai');
-            
-            // Check if we have all required data
+            // Check if we have all required data - if so, go straight to proposal
             if (this.hasAllRequiredData()) {
+                // Don't send another AI response, go directly to proposal generation
+                this.addMessage('Perfect! I have all the information I need. Let me analyze your business and create a comprehensive automation proposal with accurate ROI calculations...', 'ai');
+                this.updateStatus('Generating your personalized solution proposal...');
                 setTimeout(() => {
                     this.generateSolutionProposal();
-                }, 2000);
+                }, 1500);
             } else {
+                // Get AI response that intelligently continues the conversation
+                const aiResponse = await this.getIntelligentAIResponse(message);
+                this.addMessage(aiResponse, 'ai');
                 this.updateStatus('Continue sharing about your business');
             }
             
@@ -628,6 +637,7 @@ What's your name, and could you tell me the name and location of your business?`
         const businessName = this.businessData.business_name || '';
         const businessLocation = this.businessData.business_location || '';
         const businessType = this.businessData.business_type || '';
+        const useName = this.shouldUseName();
         
         let systemPrompt = '';
         
@@ -641,6 +651,8 @@ CURRENT STATUS:
 - Business Name: ${businessName || 'NOT CAPTURED - ASK FOR THIS'}  
 - Business Location: ${businessLocation || 'NOT CAPTURED - ASK FOR THIS'}
 - Business Type: ${businessType || 'NOT CAPTURED - ASK FOR THIS'}
+
+NAME USAGE: ${useName ? `Use their name (${name}) naturally in this response` : 'Do not use their name in this response'}
 
 CONVERSATION STRATEGY:
 1. If they haven't given their name yet, ask for it directly
@@ -662,22 +674,24 @@ PERSONALIZATION DATA:
 CRITICAL DATA STILL NEEDED:
 ${missingData}
 
+NAME USAGE: ${useName ? `Use their name (${name}) naturally in this response` : 'Do not use their name in this response - keep it conversational without repeating their name'}
+
 CONVERSATION GUIDELINES:
-1. ALWAYS use their name (${name}) when responding
-2. Reference their specific business (${businessName}) and location (${businessLocation})
-3. Ask business-specific questions based on their type of business (${businessType})
+1. Reference their specific business (${businessName}) and location when relevant
+2. Ask business-specific questions based on their type of business (${businessType})
+3. CRITICAL: If missing time value, ask specifically: "What do you value your time at per hour? This helps me calculate the exact ROI for your business."
 4. Ask follow-up questions that feel natural but capture missing data
 5. Keep responses under 80 words to maintain conversation flow
 6. Show genuine interest in their specific business challenges
 7. Make recommendations relevant to their business type and location
 
 RESPONSE STRATEGY:
-- Reference their business specifically: "For ${businessName} in ${businessLocation}..."
+- Reference their business specifically when relevant: "For ${businessName}..." or "At your ${businessType}..."
 - Ask industry-specific questions based on ${businessType}
-- Use their name naturally in conversation
 - Connect your questions to their previous answers
+- Don't overuse their name - be natural and conversational
 
-Remember: This should feel like a personalized consultation with someone who knows their business.`;
+Remember: This should feel like a personalized consultation with someone who knows their business, but don't repeat their name in every response.`;
         }
 
         try {
@@ -799,7 +813,7 @@ Remember: This should feel like a personalized consultation with someone who kno
         if (!this.requiredData.business_type.captured) {
             const businessTypePatterns = [
                 /(?:i run a|i own a|type of business|business is a|i operate a)\s+([^.!?,\n]+)/i,
-                /\b(salon|spa|clinic|restaurant|shop|store|practice|firm|company|dental|medical|retail|gym|fitness|bakery|cafe|bar|hotel|accounting|law|consulting)\b/i
+                /\b(salon|spa|clinic|restaurant|shop|store|practice|firm|company|dental|medical|retail|gym|fitness|bakery|cafe|bar|hotel|accounting|law|consulting|grooming|pet)\b/i
             ];
             for (const pattern of businessTypePatterns) {
                 const match = message.match(pattern);
@@ -860,10 +874,10 @@ Remember: This should feel like a personalized consultation with someone who kno
             }
         }
 
-        // Extract time value
+        // CRITICAL: Enhanced time value extraction - this is required!
         if (!this.requiredData.time_value.captured) {
             const valueMatch = message.match(/\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
-            if (valueMatch || lowerMessage.includes('dollar') || lowerMessage.includes('worth')) {
+            if (valueMatch || lowerMessage.includes('dollar') || lowerMessage.includes('worth') || lowerMessage.includes('hour')) {
                 this.businessData.time_value = message;
                 this.requiredData.time_value.captured = true;
             }
@@ -1023,6 +1037,7 @@ PERSONALIZED FOLLOW-UP SUGGESTIONS:
 
     getSolutionFromConversation() {
         const solutionMessage = this.conversationHistory
+            .slice()
             .reverse()
             .find(msg => msg.role === 'assistant' && (
                 msg.content.includes('AUTOMATION OPPORTUNITIES') || 
@@ -1065,7 +1080,8 @@ PERSONALIZED FOLLOW-UP SUGGESTIONS:
         const businessType = (this.businessData.business_type || '').toLowerCase();
         if (businessType.includes('salon') || businessType.includes('spa') || 
             businessType.includes('clinic') || businessType.includes('dental') ||
-            businessType.includes('medical') || businessType.includes('appointment')) {
+            businessType.includes('medical') || businessType.includes('appointment') ||
+            businessType.includes('grooming') || businessType.includes('pet')) {
             score += 15; // High-automation potential businesses
         } else if (businessType.includes('retail') || businessType.includes('restaurant') ||
                    businessType.includes('service')) {
@@ -1102,8 +1118,6 @@ PERSONALIZED FOLLOW-UP SUGGESTIONS:
         const businessName = this.businessData.business_name || 'your business';
         const businessLocation = this.businessData.business_location || 'your area';
         
-        this.addMessage(`${name ? `${name}, ` : ''}thank you for sharing all that information about ${businessName}! I have everything I need to create a comprehensive AI automation proposal specifically for your ${this.businessData.business_type || 'business'} in ${businessLocation}. Let me analyze your specific situation and calculate the exact ROI...`, 'ai');
-        
         setTimeout(async () => {
             try {
                 const solutionPrompt = `Create a comprehensive AI solution proposal for this business owner. Use their specific information to personalize the proposal throughout.
@@ -1117,31 +1131,35 @@ CURRENT SOLUTIONS: ${this.businessData.current_solution || 'Mostly manual proces
 POTENTIAL TIME SAVINGS: ${this.businessData.time_savings || '5-10 hours per week'}
 TIME VALUE: ${this.businessData.time_value || '$50 per hour'}
 
-INSTRUCTIONS:
-Create a highly personalized proposal that uses their specific details throughout:
+CRITICAL INSTRUCTIONS:
+1. Use their EXACT time value from the conversation - do not assume or make up numbers
+2. Calculate ROI using their specific time value and time savings
+3. Do NOT include email signature, placeholders for names, or "Warm regards" endings
+4. End with ONLY the consultation question
+
+PROPOSAL STRUCTURE:
 
 1. **EXECUTIVE SUMMARY**
-   - Address them by first name
+   - Address them by first name only
    - Reference their business name and location specifically
    - Highlight automation opportunities specific to their business type
    - Mention their specific challenges
 
 2. **DETAILED ROI ANALYSIS**
-   - Use their exact time value and estimated savings
-   - Calculate precise annual savings
+   - Use their EXACT time value from the conversation
+   - Use their EXACT estimated time savings
+   - Calculate precise annual savings (time savings × time value × 52 weeks)
    - Show JAX AI Consulting's 10% fee calculation
-   - Demonstrate 900%+ ROI with their specific numbers
+   - Demonstrate actual ROI percentage
 
 3. **CUSTOM AUTOMATION SOLUTIONS**
    - 2-3 solutions tailored to their business type and pain points
    - Reference their business name in examples
    - Explain how each solution addresses their specific challenges
-   - Include industry-specific automation opportunities
 
 4. **LOCAL ADVANTAGE**
    - Mention their location and local market benefits
-   - Reference Jacksonville-based support and in-person consultations
-   - Local business community benefits
+   - Reference Jacksonville-based support
 
 5. **IMPLEMENTATION TIMELINE**
    - 6-week timeline with specific phases
@@ -1149,11 +1167,12 @@ Create a highly personalized proposal that uses their specific details throughou
    - Emphasize pay-for-performance model
 
 6. **NEXT STEPS**
-   - End with: "Would you like to schedule an in-person consultation to discuss implementing this solution for [business name]?"
+   - End with ONLY: "Would you like to schedule an in-person consultation to discuss implementing this solution for [business name]?"
+   - NO signature, NO placeholders, NO "warm regards"
 
-Make this feel like a custom proposal created specifically for their business, not a template. Use their name, business name, location, and specific challenges throughout.`;
+Make this feel completely personalized using their actual data. Use precise calculations with their real numbers.`;
 
-                this.addMessage('Analyzing your business data and creating your personalized automation strategy...', 'thinking');
+                this.addMessage('Creating your personalized automation strategy with precise ROI calculations...', 'thinking');
 
                 const response = await this.getAISolutionResponse(solutionPrompt);
                 this.removeLastMessage();
@@ -1166,7 +1185,7 @@ Make this feel like a custom proposal created specifically for their business, n
                 this.removeLastMessage();
                 this.showError('Error generating your solution proposal. Please refresh and try again.');
             }
-        }, 2000);
+        }, 1500);
     }
 
     async getAISolutionResponse(solutionPrompt) {
@@ -1182,7 +1201,7 @@ Make this feel like a custom proposal created specifically for their business, n
                 },
                 body: JSON.stringify({
                     messages: [{ role: 'user', content: solutionPrompt }],
-                    systemPrompt: 'You are an expert AI business consultant creating highly personalized, detailed solution proposals for small businesses. Focus on specific ROI calculations, custom automation recommendations, and use the client\'s business details throughout.',
+                    systemPrompt: 'You are an expert AI business consultant creating highly personalized, detailed solution proposals for small businesses. Use ONLY the exact data provided - never assume or hallucinate numbers. Focus on specific ROI calculations using their real time value and custom automation recommendations. Do NOT include email signatures or placeholders.',
                     maxTokens: 1500
                 })
             });
