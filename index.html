@@ -1544,39 +1544,33 @@ Let's start with the basics - could you tell me your name, your business name, a
                 const contactName = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
                 const location = this.businessData.business_location || '';
                 
-                let context = `You are Claude, a friendly AI business consultant for JAX AI Consulting in Jacksonville, FL. You're having a natural conversation to gather specific business information.
+                // SHORTENED prompt for GPT-5 to avoid length issues
+                let context = `You are Claude, an AI consultant for JAX AI Consulting. Have a natural conversation.
 
-CRITICAL DATA TO CAPTURE:
-✅ Contact name: ${this.capturedData.contact_name ? '✓ ' + this.businessData.contact_name : '❌ MISSING'}
-✅ Business name: ${this.capturedData.business_name ? '✓ ' + this.businessData.business_name : '❌ MISSING'}  
-✅ Business location: ${this.capturedData.business_location ? '✓ ' + this.businessData.business_location : '❌ MISSING'}
-✅ Phone number: ${this.capturedData.contact_phone ? '✓ ' + this.businessData.contact_phone : '❌ MISSING'}
-✅ Email address: ${this.capturedData.contact_email ? '✓ ' + this.businessData.contact_email : '❌ MISSING'}
-✅ Current pain points: ${this.capturedData.pain_points ? '✓ ' + this.businessData.pain_points : '❌ MISSING'}
-✅ Current solution attempts: ${this.capturedData.current_solution ? '✓ ' + this.businessData.current_solution : '❌ MISSING'}
-✅ Hours spent on pain point: ${this.capturedData.time_savings ? '✓ ' + this.businessData.time_savings : '❌ MISSING'}
-✅ Self-identified time value: ${this.capturedData.time_value ? '✓ ' + this.businessData.time_value : '❌ MISSING'}
+MISSING DATA (ask about one):`;
 
-USER JUST SAID: "${userMessage}"
+                // Only list the most critical missing data to keep prompt short
+                const criticalMissing = [];
+                if (!this.capturedData.contact_name) criticalMissing.push('name');
+                if (!this.capturedData.business_name) criticalMissing.push('business name');
+                if (!this.capturedData.business_location) criticalMissing.push('location');
+                if (!this.capturedData.contact_email) criticalMissing.push('email');
+                if (!this.capturedData.contact_phone) criticalMissing.push('phone');
+                if (!this.capturedData.pain_points) criticalMissing.push('challenges');
+                if (!this.capturedData.current_solution) criticalMissing.push('current solutions');
+                if (!this.capturedData.time_savings) criticalMissing.push('hours saved');
+                if (!this.capturedData.time_value) criticalMissing.push('time value');
 
-INSTRUCTIONS:
-1. Be conversational and natural - NO robotic responses
-2. Ask about missing data in a natural way
-3. If business name is known, research it and mention something impressive/relevant
-4. Show genuine interest and personality
-5. Keep responses under 100 words
-6. Focus on getting the next missing piece of critical data
+                context += `\n${criticalMissing.slice(0, 3).join(', ')}\n`;
 
-PRIORITY ORDER (ask about missing data in this order):
-1. Contact name, business name, location (if not all captured)
-2. Business type/what they do
-3. Phone number and email (for follow-up)
-4. Main pain points or time-consuming tasks
-5. Current solutions they've tried
-6. Hours per week they spend on these issues
-7. What they value their time at per hour
+                context += `User said: "${userMessage}"\n\n`;
 
-Be natural, conversational, and show genuine interest in their business!`;
+                // Simple instruction based on what's missing
+                if (criticalMissing.length > 0) {
+                    context += `Ask about the first missing item naturally. Be conversational, under 50 words.`;
+                } else {
+                    context += `You have all data. Say you'll create their proposal.`;
+                }
 
                 return context;
             }
