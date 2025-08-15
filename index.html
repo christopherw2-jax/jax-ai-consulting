@@ -1367,14 +1367,12 @@
             }
 
             startAssessment() {
-                const welcomeMessage = `Hi there! I'm your AI consultant from JAX AI Consulting, powered by the latest GPT-5 technology. I'm excited to learn about your business and explore how we can help you save 10+ hours per week through smart automation.
+                const welcomeMessage = `Hi there! I'm Claude from JAX AI Consulting, and I'm genuinely excited to learn about your business! I love helping business owners like yourself discover how AI can free up your time and boost your revenue.
 
-I have just 6 focused questions to create your personalized automation proposal with exact ROI calculations.
-
-${this.questionSequence[0].question}`;
+Let's start with the basics - could you tell me your name, your business name, and where you're located?`;
 
                 this.addMessage(welcomeMessage, 'ai');
-                this.updateStatus(`Question ${this.currentQuestionIndex + 1} of ${this.questionSequence.length}`);
+                this.updateStatus(`Getting to know you and your business`);
             }
 
             startListening() {
@@ -1446,22 +1444,15 @@ ${this.questionSequence[0].question}`;
                     
                     // After 6 questions (core required data), generate proposal
                     if (this.questionsAnswered >= 6) {
-                        this.addMessage('Perfect! I have all the core information I need. Let me analyze your business with GPT-5 and create a comprehensive automation proposal with accurate ROI calculations...', 'ai');
-                        this.updateStatus('GPT-5 is generating your personalized solution proposal...');
+                        this.addMessage('Perfect! I have everything I need. Let me put together a customized automation strategy for you...', 'ai');
+                        this.updateStatus('Creating your personalized proposal...');
+                        // Force proposal generation after short delay
                         setTimeout(() => {
                             this.generateSolutionProposal();
-                        }, 1500);
-                    } else if (this.currentQuestionIndex < this.questionSequence.length - 1) {
-                        // Move to next question
-                        this.currentQuestionIndex++;
-                        this.askNextQuestion();
+                        }, 2000);
                     } else {
-                        // Fallback - generate proposal if we've gone through all questions
-                        this.addMessage('Thank you! Let me create your automation proposal with GPT-5...', 'ai');
-                        this.updateStatus('GPT-5 is generating your personalized solution proposal...');
-                        setTimeout(() => {
-                            this.generateSolutionProposal();
-                        }, 1500);
+                        // Get natural response from AI for next question
+                        await this.getNextQuestionResponse(message);
                     }
                     
                 } catch (error) {
@@ -1473,24 +1464,114 @@ ${this.questionSequence[0].question}`;
                 submitButton.textContent = 'Send';
             }
 
-            askNextQuestion() {
-                const nextQuestion = this.questionSequence[this.currentQuestionIndex];
-                
-                // Create personalized response
-                const name = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
-                const businessName = this.businessData.business_name || '';
-                
-                let response = 'Thank you! ';
-                
-                // Add business reference if available and past the first question
-                if (businessName && this.currentQuestionIndex > 1) {
-                    response += `For ${businessName}, ${nextQuestion.question.toLowerCase()}`;
-                } else {
-                    response += nextQuestion.question;
+            async getNextQuestionResponse(userMessage) {
+                try {
+                    // Build context for more natural conversation
+                    const contextualPrompt = this.buildContextualPrompt(userMessage);
+                    
+                    const response = await this.getAIResponse(contextualPrompt);
+                    this.addMessage(response, 'ai');
+                    
+                    // Update status based on progress
+                    if (this.questionsAnswered < 6) {
+                        this.updateStatus(`Learning about your business (${this.questionsAnswered}/6)`);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error getting AI response:', error);
+                    // Fallback to manual next question
+                    this.moveToNextQuestionManually();
                 }
+            }
+
+            buildContextualPrompt(userMessage) {
+                const businessName = this.businessData.business_name || 'their business';
+                const contactName = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
+                const location = this.businessData.business_location || '';
                 
-                this.addMessage(response, 'ai');
-                this.updateStatus(`Question ${this.currentQuestionIndex + 1} of ${this.questionSequence.length}`);
+                let context = `You are Claude, a friendly AI business consultant for JAX AI Consulting. You're having a natural conversation with ${contactName || 'a business owner'} about ${businessName}`;
+                if (location) context += ` in ${location}`;
+                context += `. `;
+
+                // Add what we know so far
+                if (this.businessData.business_name && this.businessData.business_type) {
+                    context += `Their business is ${this.businessData.business_name}, which is ${this.businessData.business_type}. `;
+                }
+
+                context += `User just said: "${userMessage}"\n\n`;
+
+                // Determine what to ask next based on current progress
+                if (this.questionsAnswered === 1 && this.businessData.business_name) {
+                    context += `CRITICAL: Look up "${this.businessData.business_name}" in ${location || 'their area'} and find something interesting or relevant about this business to mention. Then naturally ask what type of business they run. Be conversational, not robotic.`;
+                } else if (this.questionsAnswered === 2) {
+                    context += `Now ask about their main challenges or time-consuming tasks in a natural, conversational way. Reference their business type if known.`;
+                } else if (this.questionsAnswered === 3) {
+                    context += `Ask about their current solutions for the challenges they mentioned, in a natural way.`;
+                } else if (this.questionsAnswered === 4) {
+                    context += `Ask how many hours per week automation could save them, in a conversational way.`;
+                } else if (this.questionsAnswered === 5) {
+                    context += `Ask what they value their time at per hour for ROI calculations, but make it conversational.`;
+                } else if (this.questionsAnswered === 6) {
+                    context += `Ask for email and phone number to send the proposal, in a natural way.`;
+                }
+
+                context += `\n\nKeep response under 80 words. Be friendly, natural, and conversational - not robotic. Show genuine interest in their business.`;
+
+                return context;
+            }
+
+            async getAIResponse(prompt) {
+                try {
+                    const functionUrl = window.location.hostname === 'localhost' 
+                        ? 'http://localhost:8888/.netlify/functions/ai-assessment'
+                        : '/.netlify/functions/ai-assessment';
+
+                    const response = await fetch(functionUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            messages: [{ role: 'user', content: prompt }],
+                            systemPrompt: 'You are Claude, a friendly and natural AI business consultant. Be conversational, not robotic. Show genuine interest and personality.',
+                            maxTokens: 200
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Backend request failed with status ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const aiResponse = data.content[0].text;
+
+                    // Track tokens
+                    if (data.usage) {
+                        this.totalTokensUsed += data.usage.total_tokens;
+                    }
+
+                    // Add to conversation history
+                    this.conversationHistory.push({
+                        role: 'assistant',
+                        content: aiResponse
+                    });
+
+                    return aiResponse;
+
+                } catch (error) {
+                    console.error('AI Response Error:', error);
+                    throw error;
+                }
+            }
+
+            moveToNextQuestionManually() {
+                // Fallback manual progression
+                if (this.currentQuestionIndex < this.questionSequence.length - 1) {
+                    this.currentQuestionIndex++;
+                    const nextQuestion = this.questionSequence[this.currentQuestionIndex];
+                    this.addMessage(`Thanks! ${nextQuestion.question}`, 'ai');
+                    this.updateStatus(`Question ${this.currentQuestionIndex + 1} of ${this.questionSequence.length}`);
+                }
             }
 
             extractDataFromMessage(message) {
@@ -1788,51 +1869,107 @@ TIME VALUE: ${this.businessData.time_value || '$50 per hour'}
 CRITICAL INSTRUCTIONS:
 1. Use their EXACT time value and time savings - no assumptions
 2. Calculate precise ROI using their real numbers
-3. Address them by first name
+3. Address them by first name only
 4. Reference their specific business name and challenges
 5. End with ONLY the consultation question - no signatures
+6. Be conversational and personable, not robotic
 
 PROPOSAL STRUCTURE:
 
-## EXECUTIVE SUMMARY
-- Address by first name
-- Reference business name and location
-- Mention specific challenges from their input
+## EXECUTIVE SUMMARY FOR [FIRST NAME]
+- Address by first name in a warm, personal way
+- Reference business name and location specifically
+- Mention their exact challenges (inventory management, etc.)
 
-## DETAILED ROI ANALYSIS
-- Use EXACT time value and savings from their responses
-- Calculate: (time savings × time value × 52 weeks) = annual savings
+## YOUR ROI ANALYSIS
+- Use EXACT time value (${this.businessData.time_value}) and savings (${this.businessData.time_savings} hours/week)
+- Calculate: (${this.businessData.time_savings || 5} hours × ${this.extractTimeValue(this.businessData.time_value) || 50} × 52 weeks) = annual savings
 - JAX AI fee: 10% of annual savings
-- Show ROI percentage: ((annual savings - fee) / fee) × 100
+- Show ROI percentage
 
-## CUSTOM AUTOMATION SOLUTIONS
+## CUSTOM AUTOMATION SOLUTIONS FOR ${this.businessData.business_name || 'YOUR BUSINESS'}
 - 2-3 specific solutions based on their exact challenges
-- Reference their business name
-- Address their current manual processes
+- Reference their business name throughout
+- Address inventory management specifically since that's their main challenge
 
 ## IMPLEMENTATION TIMELINE
 - 6-week timeline
 - Pay-for-performance model details
 
 ## NEXT STEPS
-- "Would you like to schedule an in-person consultation to discuss implementing this solution for [business name]?"
+- "Would you like to schedule an in-person consultation to discuss implementing this solution for ${this.businessData.business_name || 'your business'}?"
 
-Use only their real data - no placeholders or assumptions. Be specific and personal.`;
+Use only their real data - no placeholders. Be warm and personal, not corporate.`;
 
-                    this.addMessage('GPT-5 is creating your personalized automation strategy with precise ROI calculations...', 'thinking');
+                    this.addMessage('Let me create something special for you...', 'thinking');
 
                     const response = await this.getAISolutionResponse(solutionPrompt);
                     this.removeLastMessage();
                     this.addMessage(response, 'ai');
                     
                     this.solutionProposalGenerated = true;
-                    this.updateStatus('Please let me know if you\'d like to schedule a consultation');
+                    this.updateStatus('Would you like to schedule a consultation?');
 
                 } catch (error) {
                     this.removeLastMessage();
-                    this.showError('Error generating your solution proposal. Please refresh and try again.');
+                    this.showError('Error generating your proposal. Please let me know and I\'ll create it manually!');
                     console.error('Solution generation error:', error);
+                    
+                    // Fallback manual proposal
+                    setTimeout(() => {
+                        this.createFallbackProposal();
+                    }, 2000);
                 }
+            }
+
+            createFallbackProposal() {
+                const name = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
+                const businessName = this.businessData.business_name || 'your business';
+                const timeValue = this.extractTimeValue(this.businessData.time_value) || 50;
+                const timeSavings = this.extractTimeSavings(this.businessData.time_savings) || 5;
+                const annualSavings = timeSavings * timeValue * 52;
+                const fee = Math.round(annualSavings * 0.1);
+                const roi = Math.round(((annualSavings - fee) / fee) * 100);
+
+                const fallbackProposal = `## EXECUTIVE SUMMARY FOR ${name.toUpperCase()}
+
+Hi ${name}! Based on our conversation about ${businessName} in ${this.businessData.business_location || 'your area'}, I can see huge potential for automation to transform your operations, especially around ${this.businessData.pain_points || 'inventory management'}.
+
+## YOUR ROI ANALYSIS
+- **Time Savings**: ${timeSavings} hours/week
+- **Time Value**: ${timeValue}/hour  
+- **Annual Savings**: ${annualSavings.toLocaleString()}
+- **JAX AI Fee**: ${fee.toLocaleString()} (10% of savings)
+- **Your ROI**: ${roi}% return on investment
+
+## CUSTOM AUTOMATION SOLUTIONS FOR ${businessName.toUpperCase()}
+
+**1. Smart Inventory Management System**
+- Automated reorder alerts when supplies run low
+- Predictive ordering based on appointment patterns
+- Real-time inventory tracking
+
+**2. Client Communication Automation**
+- Automated appointment reminders and confirmations
+- Post-service follow-up and review requests
+- Birthday and holiday greetings for customer retention
+
+**3. Business Intelligence Dashboard**
+- Revenue and booking analytics
+- Peak time optimization
+- Customer behavior insights
+
+## IMPLEMENTATION TIMELINE
+- **Week 1-2**: Assessment and system design
+- **Week 3-4**: Setup and integration
+- **Week 5-6**: Testing and training
+- **Pay-for-Performance**: You only pay after we prove the ${timeSavings} hour/week savings
+
+Would you like to schedule an in-person consultation to discuss implementing this solution for ${businessName}?`;
+
+                this.addMessage(fallbackProposal, 'ai');
+                this.solutionProposalGenerated = true;
+                this.updateStatus('Would you like to schedule a consultation?');
             }
 
             async getAISolutionResponse(solutionPrompt) {
