@@ -53,7 +53,7 @@ exports.handler = async (event, context) => {
       },
       body: JSON.stringify({
         model: 'gpt-5', // GPT-5 ONLY
-        max_completion_tokens: maxTokens, // GPT-5 uses max_completion_tokens instead of max_tokens
+        max_completion_tokens: maxTokens * 2, // Double the tokens since GPT-5 might need more
         messages: formattedMessages
         // GPT-5 only supports default temperature (1) - removed all other parameters
       })
@@ -76,33 +76,36 @@ exports.handler = async (event, context) => {
     const data = await response.json();
     console.log('GPT-5 Response Data:', JSON.stringify(data, null, 2)); // Debug log
     
-    // Handle GPT-5 response format (might be different from GPT-4)
+    // Handle GPT-5 response format
     let responseText = '';
     
-    if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-      // Standard OpenAI format
-      responseText = data.choices[0].message.content;
-    } else if (data.content && data.content[0] && data.content[0].text) {
-      // Anthropic-like format
-      responseText = data.content[0].text;
-    } else if (data.response) {
-      // Simple response format
-      responseText = data.response;
-    } else if (data.text) {
-      // Direct text format
-      responseText = data.text;
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      const message = data.choices[0].message;
+      responseText = message.content || '';
+      
+      // Check if response was cut off due to length
+      if (data.choices[0].finish_reason === 'length' && !responseText.trim()) {
+        throw new Error('GPT-5 response was cut off due to length limit. Try with a shorter prompt.');
+      }
+      
+      // Check if we got an empty response
+      if (!responseText.trim()) {
+        throw new Error('GPT-5 returned an empty response. This might be a prompt issue.');
+      }
     } else {
-      console.error('Unknown GPT-5 response format:', data);
-      throw new Error(`Unexpected GPT-5 response format: ${JSON.stringify(data)}`);
+      console.error('Unexpected GPT-5 response structure:', data);
+      throw new Error(`GPT-5 response missing expected structure: ${JSON.stringify(data)}`);
     }
     
-    console.log('Extracted GPT-5 response:', responseText);
+    console.log('GPT-5 Response Text:', responseText);
+    console.log('GPT-5 Finish Reason:', data.choices[0].finish_reason);
+    console.log('GPT-5 Usage:', data.usage);
     
     // Transform to expected format
     const transformedResponse = {
       content: [{ text: responseText }],
       usage: data.usage || { total_tokens: 0 },
-      model_used: 'gpt-5'
+      model_used: data.model || 'gpt-5'
     };
     
     return {
