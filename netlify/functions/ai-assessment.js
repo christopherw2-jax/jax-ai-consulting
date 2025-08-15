@@ -74,12 +74,34 @@ exports.handler = async (event, context) => {
     }
 
     const data = await response.json();
-    console.log('Success! Response received from GPT-5');
+    console.log('GPT-5 Response Data:', JSON.stringify(data, null, 2)); // Debug log
+    
+    // Handle GPT-5 response format (might be different from GPT-4)
+    let responseText = '';
+    
+    if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+      // Standard OpenAI format
+      responseText = data.choices[0].message.content;
+    } else if (data.content && data.content[0] && data.content[0].text) {
+      // Anthropic-like format
+      responseText = data.content[0].text;
+    } else if (data.response) {
+      // Simple response format
+      responseText = data.response;
+    } else if (data.text) {
+      // Direct text format
+      responseText = data.text;
+    } else {
+      console.error('Unknown GPT-5 response format:', data);
+      throw new Error(`Unexpected GPT-5 response format: ${JSON.stringify(data)}`);
+    }
+    
+    console.log('Extracted GPT-5 response:', responseText);
     
     // Transform to expected format
     const transformedResponse = {
-      content: [{ text: data.choices[0].message.content }],
-      usage: data.usage,
+      content: [{ text: responseText }],
+      usage: data.usage || { total_tokens: 0 },
       model_used: 'gpt-5'
     };
     
