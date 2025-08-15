@@ -1439,19 +1439,18 @@ Let's start with the basics - could you tell me your name, your business name, a
                     // Extract data from the user's message
                     this.extractDataFromMessage(message);
                     
-                    // Always move to next question OR generate proposal
+                    // Always get AI response - no more scripted responses
                     this.questionsAnswered++;
                     
-                    // After 6 questions (core required data), generate proposal
-                    if (this.questionsAnswered >= 6) {
+                    // Check if we have enough core data to generate proposal
+                    if (this.hasEnoughDataForProposal()) {
                         this.addMessage('Perfect! I have everything I need. Let me put together a customized automation strategy for you...', 'ai');
                         this.updateStatus('Creating your personalized proposal...');
-                        // Force proposal generation after short delay
                         setTimeout(() => {
                             this.generateSolutionProposal();
                         }, 2000);
                     } else {
-                        // Get natural response from AI for next question
+                        // Always get contextual AI response
                         await this.getNextQuestionResponse(message);
                     }
                     
@@ -1462,6 +1461,21 @@ Let's start with the basics - could you tell me your name, your business name, a
                 
                 submitButton.disabled = false;
                 submitButton.textContent = 'Send';
+            }
+
+            hasEnoughDataForProposal() {
+                // Core required data for proposal
+                const requiredData = [
+                    'contact_name',
+                    'business_name', 
+                    'business_location',
+                    'pain_points',
+                    'current_solution',
+                    'time_savings',
+                    'time_value'
+                ];
+                
+                return requiredData.every(key => this.capturedData[key]);
             }
 
             async getNextQuestionResponse(userMessage) {
@@ -1485,37 +1499,43 @@ Let's start with the basics - could you tell me your name, your business name, a
             }
 
             buildContextualPrompt(userMessage) {
-                const businessName = this.businessData.business_name || 'their business';
+                const businessName = this.businessData.business_name || '';
                 const contactName = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
                 const location = this.businessData.business_location || '';
                 
-                let context = `You are Claude, a friendly AI business consultant for JAX AI Consulting. You're having a natural conversation with ${contactName || 'a business owner'} about ${businessName}`;
-                if (location) context += ` in ${location}`;
-                context += `. `;
+                let context = `You are Claude, a friendly AI business consultant for JAX AI Consulting in Jacksonville, FL. You're having a natural conversation to gather specific business information.
 
-                // Add what we know so far
-                if (this.businessData.business_name && this.businessData.business_type) {
-                    context += `Their business is ${this.businessData.business_name}, which is ${this.businessData.business_type}. `;
-                }
+CRITICAL DATA TO CAPTURE:
+✅ Contact name: ${this.capturedData.contact_name ? '✓ ' + this.businessData.contact_name : '❌ MISSING'}
+✅ Business name: ${this.capturedData.business_name ? '✓ ' + this.businessData.business_name : '❌ MISSING'}  
+✅ Business location: ${this.capturedData.business_location ? '✓ ' + this.businessData.business_location : '❌ MISSING'}
+✅ Phone number: ${this.capturedData.contact_phone ? '✓ ' + this.businessData.contact_phone : '❌ MISSING'}
+✅ Email address: ${this.capturedData.contact_email ? '✓ ' + this.businessData.contact_email : '❌ MISSING'}
+✅ Current pain points: ${this.capturedData.pain_points ? '✓ ' + this.businessData.pain_points : '❌ MISSING'}
+✅ Current solution attempts: ${this.capturedData.current_solution ? '✓ ' + this.businessData.current_solution : '❌ MISSING'}
+✅ Hours spent on pain point: ${this.capturedData.time_savings ? '✓ ' + this.businessData.time_savings : '❌ MISSING'}
+✅ Self-identified time value: ${this.capturedData.time_value ? '✓ ' + this.businessData.time_value : '❌ MISSING'}
 
-                context += `User just said: "${userMessage}"\n\n`;
+USER JUST SAID: "${userMessage}"
 
-                // Determine what to ask next based on current progress
-                if (this.questionsAnswered === 1 && this.businessData.business_name) {
-                    context += `CRITICAL: Look up "${this.businessData.business_name}" in ${location || 'their area'} and find something interesting or relevant about this business to mention. Then naturally ask what type of business they run. Be conversational, not robotic.`;
-                } else if (this.questionsAnswered === 2) {
-                    context += `Now ask about their main challenges or time-consuming tasks in a natural, conversational way. Reference their business type if known.`;
-                } else if (this.questionsAnswered === 3) {
-                    context += `Ask about their current solutions for the challenges they mentioned, in a natural way.`;
-                } else if (this.questionsAnswered === 4) {
-                    context += `Ask how many hours per week automation could save them, in a conversational way.`;
-                } else if (this.questionsAnswered === 5) {
-                    context += `Ask what they value their time at per hour for ROI calculations, but make it conversational.`;
-                } else if (this.questionsAnswered === 6) {
-                    context += `Ask for email and phone number to send the proposal, in a natural way.`;
-                }
+INSTRUCTIONS:
+1. Be conversational and natural - NO robotic responses
+2. Ask about missing data in a natural way
+3. If business name is known, research it and mention something impressive/relevant
+4. Show genuine interest and personality
+5. Keep responses under 100 words
+6. Focus on getting the next missing piece of critical data
 
-                context += `\n\nKeep response under 80 words. Be friendly, natural, and conversational - not robotic. Show genuine interest in their business.`;
+PRIORITY ORDER (ask about missing data in this order):
+1. Contact name, business name, location (if not all captured)
+2. Business type/what they do
+3. Phone number and email (for follow-up)
+4. Main pain points or time-consuming tasks
+5. Current solutions they've tried
+6. Hours per week they spend on these issues
+7. What they value their time at per hour
+
+Be natural, conversational, and show genuine interest in their business!`;
 
                 return context;
             }
@@ -1580,15 +1600,15 @@ Let's start with the basics - could you tell me your name, your business name, a
                 // Extract name (multiple patterns)
                 if (!this.capturedData.contact_name) {
                     const namePatterns = [
-                        /(?:my name is|i'm|i am|call me|this is)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)*)/i,
-                        /^([a-zA-Z]+(?:\s+[a-zA-Z]+)*?)(?:\s+(?:and|from|here|owner|,|\.|!|-))/i,
+                        /(?:my name is|i'm|i am|call me|this is|name's)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)*)/i,
+                        /^([a-zA-Z]+(?:\s+[a-zA-Z]+)*?)(?:\s*,|\s+(?:and|from|here|owner|\.|!|-))/i,
                         /^([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})/i
                     ];
                     for (const pattern of namePatterns) {
                         const match = message.match(pattern);
                         if (match && match[1] && match[1].split(' ').length <= 3) {
                             let name = match[1].trim().replace(/\b(owner|manager|from|and|the|business|company|shop|salon|clinic)\b/gi, '').trim();
-                            if (name && name.length > 1) {
+                            if (name && name.length > 1 && /^[a-zA-Z\s]+$/.test(name)) {
                                 this.businessData.contact_name = name;
                                 this.capturedData.contact_name = true;
                                 break;
@@ -1600,15 +1620,19 @@ Let's start with the basics - could you tell me your name, your business name, a
                 // Extract business name
                 if (!this.capturedData.business_name) {
                     const businessNamePatterns = [
-                        /(?:business|company|shop|salon|clinic|restaurant|store|practice)\s+(?:is\s+)?(?:called\s+)?([^.!?,\n]+)/i,
-                        /(?:run|own|operate)\s+(?:a\s+)?([^.!?,\n]+?)(?:\s+in|\s+located|\s+at|$)/i,
-                        /called\s+([^.!?,\n]+)/i
+                        /(?:business|company|shop|salon|clinic|restaurant|store|practice|spa)\s+(?:is\s+)?(?:called\s+)?([^,.!?\n]+)/i,
+                        /(?:run|own|operate|have)\s+(?:a\s+)?([^,.!?\n]+?)(?:\s+in|\s+located|\s+at|$)/i,
+                        /called\s+([^,.!?\n]+)/i,
+                        /,\s*([a-zA-Z\s]+?)(?:\s+in|\s+located|,|$)/i,
+                        /^[a-zA-Z\s]+?,\s*([a-zA-Z\s]+)/i
                     ];
                     for (const pattern of businessNamePatterns) {
                         const match = message.match(pattern);
                         if (match && match[1]) {
-                            let businessName = match[1].trim().replace(/\b(is|in|located|here|the|a|called|and)\b/gi, '').trim();
-                            if (businessName && businessName.length > 2) {
+                            let businessName = match[1].trim()
+                                .replace(/\b(is|in|located|here|the|a|called|and|business|company)\b/gi, '')
+                                .trim();
+                            if (businessName && businessName.length > 2 && businessName.length < 50) {
                                 this.businessData.business_name = businessName;
                                 this.capturedData.business_name = true;
                                 break;
@@ -1620,8 +1644,9 @@ Let's start with the basics - could you tell me your name, your business name, a
                 // Extract location
                 if (!this.capturedData.business_location) {
                     const locationPatterns = [
-                        /(?:in|located in|based in|from|at)\s+([^.!?,\n]+)/i,
-                        /(?:Jacksonville|Jax|Florida|FL|Miami|Tampa|Orlando|Atlanta|Georgia|Alabama)\b[^.!?,\n]*/i
+                        /(?:in|located in|based in|from|at)\s+([^,.!?\n]+)/i,
+                        /(?:Jacksonville|Jax|Florida|FL|Miami|Tampa|Orlando|Atlanta|Georgia|Alabama|New York|California|Texas)\b[^,.!?\n]*/i,
+                        /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:FL|Florida|GA|Georgia|AL|Alabama|NY|CA|TX)))\b/i
                     ];
                     for (const pattern of locationPatterns) {
                         const match = message.match(pattern);
@@ -1640,55 +1665,77 @@ Let's start with the basics - could you tell me your name, your business name, a
                     }
                 }
 
-                // Extract business type based on current question
-                if (!this.capturedData.business_type && this.currentQuestionIndex === 1) {
-                    // For business type question, use the full response
-                    this.businessData.business_type = message;
-                    this.capturedData.business_type = true;
-                }
-
-                // Extract pain points based on current question
-                if (!this.capturedData.pain_points && this.currentQuestionIndex === 2) {
-                    this.businessData.pain_points = message;
-                    this.capturedData.pain_points = true;
-                }
-
-                // Extract current solutions based on current question
-                if (!this.capturedData.current_solution && this.currentQuestionIndex === 3) {
-                    this.businessData.current_solution = message;
-                    this.capturedData.current_solution = true;
-                }
-
-                // Extract time savings based on current question
-                if (!this.capturedData.time_savings && this.currentQuestionIndex === 4) {
-                    this.businessData.time_savings = message;
-                    this.capturedData.time_savings = true;
-                }
-
-                // Extract time value based on current question
-                if (!this.capturedData.time_value && this.currentQuestionIndex === 5) {
-                    this.businessData.time_value = message;
-                    this.capturedData.time_value = true;
-                }
-
-                // Extract email and phone from contact details question
-                if (this.currentQuestionIndex === 6) {
-                    // Extract email
-                    if (!this.capturedData.contact_email) {
-                        const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-                        if (emailMatch) {
-                            this.businessData.contact_email = emailMatch[1];
-                            this.capturedData.contact_email = true;
+                // Extract business type (when they describe what they do)
+                if (!this.capturedData.business_type) {
+                    const businessTypePatterns = [
+                        /(?:we're|we are|it's|it is|i run|i operate|i own)\s+(?:a\s+)?([^,.!?\n]+)/i,
+                        /\b(restaurant|salon|spa|clinic|shop|store|practice|firm|company|dental|medical|retail|gym|fitness|bakery|cafe|bar|hotel|grooming|pet|dog|cat|animal|vet|veterinary|hair|beauty|massage|nail|auto|car|repair|plumbing|electrical|hvac|cleaning|landscaping|photography|wedding|event|catering|food|truck|delivery|taxi|uber|lyft|real estate|insurance|accounting|law|legal|consulting|marketing|design|web|software|tech|it|computer|phone|mobile|app|game|music|art|craft|jewelry|clothing|fashion|boutique|antique|vintage|book|library|education|tutoring|daycare|childcare|eldercare|home|health|fitness|yoga|pilates|dance|martial|arts|sport|recreation|travel|tourism|hotel|motel|bed|breakfast|vacation|rental|property|management|construction|contractor|painter|roofer|flooring|cabinet|kitchen|bathroom|remodel|renovation|landscaping|lawn|garden|tree|pest|exterminator|security|alarm|locksmith|towing|storage|moving|shipping|logistics|warehouse|manufacturing|factory|production|assembly|packaging|printing|publishing|advertising|marketing|promotion|event|planning|coordination|catering|food|service|delivery|pickup|takeout|dine|restaurant|bar|pub|brewery|winery|distillery|coffee|tea|smoothie|juice|ice|cream|dessert|candy|chocolate|bakery|cake|pastry|bread|pizza|burger|sandwich|taco|mexican|italian|chinese|japanese|thai|indian|greek|mediterranean|american|southern|bbq|barbecue|grill|steakhouse|seafood|sushi|vegetarian|vegan|organic|farm|fresh|local|farmers|market|grocery|convenience|gas|station|fuel|oil|tire|automotive|mechanic|body|shop|detailing|wash|carwash|truck|semi|trailer|boat|marine|motorcycle|atv|rv|recreational|vehicle)\b/i
+                    ];
+                    for (const pattern of businessTypePatterns) {
+                        const match = message.match(pattern);
+                        if (match) {
+                            if (match[1]) {
+                                this.businessData.business_type = match[1].trim();
+                            } else {
+                                this.businessData.business_type = match[0].trim();
+                            }
+                            this.capturedData.business_type = true;
+                            break;
                         }
                     }
+                }
 
-                    // Extract phone
-                    if (!this.capturedData.contact_phone) {
-                        const phoneMatch = message.match(/(\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})/);
-                        if (phoneMatch) {
-                            this.businessData.contact_phone = phoneMatch[1];
-                            this.capturedData.contact_phone = true;
-                        }
+                // Extract email
+                if (!this.capturedData.contact_email) {
+                    const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+                    if (emailMatch) {
+                        this.businessData.contact_email = emailMatch[1];
+                        this.capturedData.contact_email = true;
+                    }
+                }
+
+                // Extract phone
+                if (!this.capturedData.contact_phone) {
+                    const phoneMatch = message.match(/(\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})/);
+                    if (phoneMatch) {
+                        this.businessData.contact_phone = phoneMatch[1];
+                        this.capturedData.contact_phone = true;
+                    }
+                }
+
+                // Extract pain points (any substantial response about challenges)
+                if (!this.capturedData.pain_points) {
+                    const painPointKeywords = /\b(inventory|scheduling|booking|appointment|customer|client|communication|follow.?up|reminder|billing|invoice|payment|staff|employee|manage|manual|time.?consuming|difficult|challenge|problem|issue|struggle|hard|tough|annoying|frustrating|waste|inefficient|slow|tedious|repetitive|paperwork|admin|administration|organize|track|record|report|update|maintenance|supply|order|reorder|stock|shortage|busy|overwhelmed|stress|burnout)\b/i;
+                    if (message.length > 5 && (painPointKeywords.test(message) || message.includes('time') || message.includes('hour'))) {
+                        this.businessData.pain_points = message;
+                        this.capturedData.pain_points = true;
+                    }
+                }
+
+                // Extract current solutions
+                if (!this.capturedData.current_solution) {
+                    const solutionKeywords = /\b(manual|manually|hand|paper|spreadsheet|excel|google|sheets|software|app|system|tool|program|service|vendor|company|employee|staff|assistant|notebook|calendar|planner|phone|call|email|text|nothing|none|no|don't|haven't|trying|attempt|use|have|do|handle|manage)\b/i;
+                    if (message.length > 2 && solutionKeywords.test(message)) {
+                        this.businessData.current_solution = message;
+                        this.capturedData.current_solution = true;
+                    }
+                }
+
+                // Extract time savings (hours per week)
+                if (!this.capturedData.time_savings) {
+                    const timeMatch = message.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h\b)/i) || message.match(/\b(\d+(?:\.\d+)?)\b/);
+                    if (timeMatch) {
+                        this.businessData.time_savings = message;
+                        this.capturedData.time_savings = true;
+                    }
+                }
+
+                // Extract time value (dollars per hour)
+                if (!this.capturedData.time_value) {
+                    const valueMatch = message.match(/\$?\s*(\d+(?:,?\d{3})*(?:\.\d{2})?)/);
+                    if (valueMatch) {
+                        this.businessData.time_value = message;
+                        this.capturedData.time_value = true;
                     }
                 }
             }
