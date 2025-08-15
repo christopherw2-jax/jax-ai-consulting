@@ -1,4 +1,4 @@
-// Structured DynamicAIAssessment class with strict question order
+// Fixed DynamicAIAssessment class with strict question order and guaranteed proposal generation
 class DynamicAIAssessment {
     constructor() {
         this.conversationHistory = [];
@@ -9,59 +9,61 @@ class DynamicAIAssessment {
         this.totalTokensUsed = 0;
         this.nameUsageCount = 0;
         
-        // STRICT question order - must follow this sequence
+        // STRICT question order - must follow this exact sequence
         this.questionSequence = [
             {
-                id: 'contact_name',
-                question: "What's your name, and could you tell me the name and location of your business?",
+                id: 'contact_info',
+                question: "What's your name, business name, and location?",
                 dataKeys: ['contact_name', 'business_name', 'business_location'],
-                label: 'Name & Business Details'
+                label: 'Contact & Business Info',
+                required: true
             },
             {
                 id: 'business_type',
                 question: "What type of business do you run?",
                 dataKeys: ['business_type'],
-                label: 'Business Type'
+                label: 'Business Type',
+                required: true
             },
             {
-                id: 'pain_points',
-                question: "What are the main challenges you're currently facing in your business?",
+                id: 'main_challenges',
+                question: "What are the main challenges or time-consuming tasks in your business?",
                 dataKeys: ['pain_points'],
-                label: 'Main Challenges'
+                label: 'Main Challenges',
+                required: true
             },
             {
-                id: 'current_solution',
+                id: 'current_solutions',
                 question: "What solutions do you currently have in place for these challenges, or are you handling everything manually?",
                 dataKeys: ['current_solution'],
-                label: 'Current Solutions'
+                label: 'Current Solutions',
+                required: true
             },
             {
                 id: 'time_savings',
                 question: "How many hours per week do you think automation could save you?",
                 dataKeys: ['time_savings'],
-                label: 'Potential Time Savings'
+                label: 'Potential Time Savings',
+                required: true
             },
             {
                 id: 'time_value',
                 question: "What do you value your time at per hour? This helps me calculate the exact ROI for your business.",
                 dataKeys: ['time_value'],
-                label: 'Time Value'
+                label: 'Time Value',
+                required: true
             },
             {
-                id: 'contact_email',
-                question: "Could you provide your email address so I can send you the detailed proposal?",
-                dataKeys: ['contact_email'],
-                label: 'Email Address'
-            },
-            {
-                id: 'contact_phone',
-                question: "And your phone number so we can follow up to schedule a consultation?",
-                dataKeys: ['contact_phone'],
-                label: 'Phone Number'
+                id: 'contact_details',
+                question: "Could you provide your email and phone number so I can send you the detailed proposal and follow up?",
+                dataKeys: ['contact_email', 'contact_phone'],
+                label: 'Contact Details',
+                required: false
             }
         ];
         
         this.currentQuestionIndex = 0;
+        this.questionsAnswered = 0;
         
         // Track captured data
         this.capturedData = {
@@ -144,7 +146,7 @@ class DynamicAIAssessment {
     startAssessment() {
         const welcomeMessage = `Hi there! I'm your AI consultant from JAX AI Consulting, and I'm excited to learn about your business and explore how we can help you save 10+ hours per week through smart automation.
 
-To give you the most personalized recommendations, let me start by getting to know you and your business.
+I have just 6 focused questions to create your personalized automation proposal with exact ROI calculations.
 
 ${this.questionSequence[0].question}`;
 
@@ -187,11 +189,6 @@ ${this.questionSequence[0].question}`;
         return Math.round((completed / Object.keys(this.capturedData).length) * 100);
     }
 
-    shouldUseName() {
-        this.nameUsageCount++;
-        return this.nameUsageCount === 1 || this.nameUsageCount % 4 === 0;
-    }
-
     async sendMessage() {
         const input = document.getElementById('textInput');
         const message = input.value.trim();
@@ -221,16 +218,27 @@ ${this.questionSequence[0].question}`;
             // Extract data from the user's message
             this.extractDataFromMessage(message);
             
-            // Check if we have all data and should generate proposal
-            if (this.hasAllRequiredData()) {
-                this.addMessage('Perfect! I have all the information I need. Let me analyze your business and create a comprehensive automation proposal with accurate ROI calculations...', 'ai');
+            // Always move to next question OR generate proposal
+            this.questionsAnswered++;
+            
+            // After 6 questions (core required data), generate proposal
+            if (this.questionsAnswered >= 6) {
+                this.addMessage('Perfect! I have all the core information I need. Let me analyze your business and create a comprehensive automation proposal with accurate ROI calculations...', 'ai');
                 this.updateStatus('Generating your personalized solution proposal...');
                 setTimeout(() => {
                     this.generateSolutionProposal();
                 }, 1500);
+            } else if (this.currentQuestionIndex < this.questionSequence.length - 1) {
+                // Move to next question
+                this.currentQuestionIndex++;
+                this.askNextQuestion();
             } else {
-                // Move to next question in sequence
-                this.moveToNextQuestion();
+                // Fallback - generate proposal if we've gone through all questions
+                this.addMessage('Thank you! Let me create your automation proposal...', 'ai');
+                this.updateStatus('Generating your personalized solution proposal...');
+                setTimeout(() => {
+                    this.generateSolutionProposal();
+                }, 1500);
             }
             
         } catch (error) {
@@ -242,6 +250,26 @@ ${this.questionSequence[0].question}`;
         submitButton.textContent = 'Send';
     }
 
+    askNextQuestion() {
+        const nextQuestion = this.questionSequence[this.currentQuestionIndex];
+        
+        // Create personalized response
+        const name = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
+        const businessName = this.businessData.business_name || '';
+        
+        let response = 'Thank you! ';
+        
+        // Add business reference if available and past the first question
+        if (businessName && this.currentQuestionIndex > 1) {
+            response += `For ${businessName}, ${nextQuestion.question.toLowerCase()}`;
+        } else {
+            response += nextQuestion.question;
+        }
+        
+        this.addMessage(response, 'ai');
+        this.updateStatus(`Question ${this.currentQuestionIndex + 1} of ${this.questionSequence.length}`);
+    }
+
     extractDataFromMessage(message) {
         const lowerMessage = message.toLowerCase();
         
@@ -249,7 +277,8 @@ ${this.questionSequence[0].question}`;
         if (!this.capturedData.contact_name) {
             const namePatterns = [
                 /(?:my name is|i'm|i am|call me|this is)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)*)/i,
-                /^([a-zA-Z]+(?:\s+[a-zA-Z]+)*?)(?:\s+(?:and|from|here|owner|,|\.|!|-))/i
+                /^([a-zA-Z]+(?:\s+[a-zA-Z]+)*?)(?:\s+(?:and|from|here|owner|,|\.|!|-))/i,
+                /^([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})/i
             ];
             for (const pattern of namePatterns) {
                 const match = message.match(pattern);
@@ -267,13 +296,14 @@ ${this.questionSequence[0].question}`;
         // Extract business name
         if (!this.capturedData.business_name) {
             const businessNamePatterns = [
-                /(?:run|own|called|business)\s+(?:a\s+)?(.+?)(?:\s+in|\s+located|\s+at|$)/i,
-                /(?:restaurant|salon|clinic|shop|store|business|company)\s+called\s+([^.!?,\n]+)/i
+                /(?:business|company|shop|salon|clinic|restaurant|store|practice)\s+(?:is\s+)?(?:called\s+)?([^.!?,\n]+)/i,
+                /(?:run|own|operate)\s+(?:a\s+)?([^.!?,\n]+?)(?:\s+in|\s+located|\s+at|$)/i,
+                /called\s+([^.!?,\n]+)/i
             ];
             for (const pattern of businessNamePatterns) {
                 const match = message.match(pattern);
                 if (match && match[1]) {
-                    let businessName = match[1].trim().replace(/\b(is|in|located|here|the|a|called)\b/gi, '').trim();
+                    let businessName = match[1].trim().replace(/\b(is|in|located|here|the|a|called|and)\b/gi, '').trim();
                     if (businessName && businessName.length > 2) {
                         this.businessData.business_name = businessName;
                         this.capturedData.business_name = true;
@@ -287,7 +317,7 @@ ${this.questionSequence[0].question}`;
         if (!this.capturedData.business_location) {
             const locationPatterns = [
                 /(?:in|located in|based in|from|at)\s+([^.!?,\n]+)/i,
-                /(?:Jacksonville|Jax|Florida|FL|Miami|Tampa|Orlando)\b[^.!?,\n]*/i
+                /(?:Jacksonville|Jax|Florida|FL|Miami|Tampa|Orlando|Atlanta|Georgia|Alabama)\b[^.!?,\n]*/i
             ];
             for (const pattern of locationPatterns) {
                 const match = message.match(pattern);
@@ -306,120 +336,57 @@ ${this.questionSequence[0].question}`;
             }
         }
 
-        // Extract business type
-        if (!this.capturedData.business_type) {
-            const businessTypePatterns = [
-                /(?:type of business|run a|own a|operate a)\s+([^.!?,\n]+)/i,
-                /\b(restaurant|salon|spa|clinic|shop|store|practice|firm|company|dental|medical|retail|gym|fitness|bakery|cafe|bar|hotel|grooming|pet)\b/i
-            ];
-            for (const pattern of businessTypePatterns) {
-                const match = message.match(pattern);
-                if (match && match[1]) {
-                    this.businessData.business_type = match[1].trim();
-                    this.capturedData.business_type = true;
-                    break;
-                } else if (match && match[0]) {
-                    this.businessData.business_type = match[0].trim();
-                    this.capturedData.business_type = true;
-                    break;
+        // Extract business type based on current question
+        if (!this.capturedData.business_type && this.currentQuestionIndex === 1) {
+            // For business type question, use the full response
+            this.businessData.business_type = message;
+            this.capturedData.business_type = true;
+        }
+
+        // Extract pain points based on current question
+        if (!this.capturedData.pain_points && this.currentQuestionIndex === 2) {
+            this.businessData.pain_points = message;
+            this.capturedData.pain_points = true;
+        }
+
+        // Extract current solutions based on current question
+        if (!this.capturedData.current_solution && this.currentQuestionIndex === 3) {
+            this.businessData.current_solution = message;
+            this.capturedData.current_solution = true;
+        }
+
+        // Extract time savings based on current question
+        if (!this.capturedData.time_savings && this.currentQuestionIndex === 4) {
+            this.businessData.time_savings = message;
+            this.capturedData.time_savings = true;
+        }
+
+        // Extract time value based on current question
+        if (!this.capturedData.time_value && this.currentQuestionIndex === 5) {
+            this.businessData.time_value = message;
+            this.capturedData.time_value = true;
+        }
+
+        // Extract email and phone from contact details question
+        if (this.currentQuestionIndex === 6) {
+            // Extract email
+            if (!this.capturedData.contact_email) {
+                const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+                if (emailMatch) {
+                    this.businessData.contact_email = emailMatch[1];
+                    this.capturedData.contact_email = true;
+                }
+            }
+
+            // Extract phone
+            if (!this.capturedData.contact_phone) {
+                const phoneMatch = message.match(/(\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})/);
+                if (phoneMatch) {
+                    this.businessData.contact_phone = phoneMatch[1];
+                    this.capturedData.contact_phone = true;
                 }
             }
         }
-
-        // Extract pain points
-        if (!this.capturedData.pain_points) {
-            if (message.length > 10) { // Any substantive response to challenges question
-                this.businessData.pain_points = message;
-                this.capturedData.pain_points = true;
-            }
-        }
-
-        // Extract current solutions
-        if (!this.capturedData.current_solution) {
-            if (message.length > 5) { // Any response to current solutions question
-                this.businessData.current_solution = message;
-                this.capturedData.current_solution = true;
-            }
-        }
-
-        // Extract time savings
-        if (!this.capturedData.time_savings) {
-            const timeMatch = message.match(/(\d+(?:\.\d+)?)/);
-            if (timeMatch || lowerMessage.includes('hour')) {
-                this.businessData.time_savings = message;
-                this.capturedData.time_savings = true;
-            }
-        }
-
-        // Extract time value
-        if (!this.capturedData.time_value) {
-            const valueMatch = message.match(/\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
-            if (valueMatch) {
-                this.businessData.time_value = message;
-                this.capturedData.time_value = true;
-            }
-        }
-
-        // Extract email
-        if (!this.capturedData.contact_email) {
-            const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-            if (emailMatch) {
-                this.businessData.contact_email = emailMatch[1];
-                this.capturedData.contact_email = true;
-            }
-        }
-
-        // Extract phone
-        if (!this.capturedData.contact_phone) {
-            const phoneMatch = message.match(/(\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})/);
-            if (phoneMatch) {
-                this.businessData.contact_phone = phoneMatch[1];
-                this.capturedData.contact_phone = true;
-            }
-        }
-    }
-
-    moveToNextQuestion() {
-        const currentQuestion = this.questionSequence[this.currentQuestionIndex];
-        
-        // Check if current question data is captured
-        const currentDataCaptured = currentQuestion.dataKeys.every(key => this.capturedData[key]);
-        
-        if (currentDataCaptured && this.currentQuestionIndex < this.questionSequence.length - 1) {
-            // Move to next question
-            this.currentQuestionIndex++;
-            const nextQuestion = this.questionSequence[this.currentQuestionIndex];
-            
-            // Create personalized response
-            const name = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
-            const businessName = this.businessData.business_name || '';
-            const useName = this.shouldUseName();
-            
-            let response = '';
-            if (useName && name) {
-                response = `Thank you, ${name}! `;
-            } else {
-                response = 'Thank you! ';
-            }
-            
-            // Add business reference if available
-            if (businessName && this.currentQuestionIndex > 2) {
-                response += `For ${businessName}, ${nextQuestion.question.toLowerCase()}`;
-            } else {
-                response += nextQuestion.question;
-            }
-            
-            this.addMessage(response, 'ai');
-            this.updateStatus(`Question ${this.currentQuestionIndex + 1} of ${this.questionSequence.length}`);
-        } else if (!currentDataCaptured) {
-            // Re-ask current question if data not captured
-            const question = currentQuestion.question;
-            this.addMessage(`Could you please provide that information? ${question}`, 'ai');
-        }
-    }
-
-    hasAllRequiredData() {
-        return Object.values(this.capturedData).every(captured => captured);
     }
 
     handleConsultationRequest(message) {
@@ -430,7 +397,7 @@ ${this.questionSequence[0].question}`;
         });
 
         // Send assessment data to webhook
-        this.sendAssessmentToFreeWebhook();
+        this.sendAssessmentToWebhook();
         
         // Show confirmation message
         const name = this.businessData.contact_name ? `, ${this.businessData.contact_name.split(' ')[0]}` : '';
@@ -442,53 +409,46 @@ ${this.questionSequence[0].question}`;
         this.updateStatus('Assessment complete - You will be contacted within 24 hours');
     }
 
-    async sendAssessmentToFreeWebhook() {
+    async sendAssessmentToWebhook() {
         try {
-            const webhookUrls = [
-                // Add your webhook URLs here
-            ];
+            const functionUrl = window.location.hostname === 'localhost' 
+                ? 'http://localhost:8888/.netlify/functions/ai-assessment'
+                : '/.netlify/functions/ai-assessment';
 
             const assessmentPayload = {
-                timestamp: new Date().toISOString(),
-                source: 'JAX AI Assessment',
+                businessData: this.businessData,
+                conversationHistory: this.conversationHistory,
+                solutionProposal: this.getSolutionFromConversation(),
                 contactName: this.businessData.contact_name || '',
                 businessName: this.businessData.business_name || '',
-                businessLocation: this.businessData.business_location || '',
-                businessType: this.businessData.business_type || '',
                 contactEmail: this.businessData.contact_email || '',
                 contactPhone: this.businessData.contact_phone || '',
-                painPoints: this.businessData.pain_points || '',
-                currentSolution: this.businessData.current_solution || '',
-                timeSavings: this.businessData.time_savings || '',
-                timeValue: this.businessData.time_value || '',
+                submittedAt: new Date().toISOString(),
                 leadScore: this.calculateLeadScore(),
                 tokensUsed: this.totalTokensUsed,
-                aiProvider: 'OpenAI ChatGPT-4o',
-                dataCompleteness: this.getCompletionProgress(),
-                conversationSummary: this.conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n\n'),
-                solutionProposal: this.getSolutionFromConversation()
+                aiProvider: 'OpenAI ChatGPT-5',
+                dataCompleteness: this.getCompletionProgress()
             };
 
-            // Try webhook
-            let webhookSuccess = false;
-            for (const url of webhookUrls) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(assessmentPayload)
-                    });
-                    if (response.ok) {
-                        webhookSuccess = true;
-                        break;
-                    }
-                } catch (error) {
-                    console.log('Webhook failed');
-                }
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    isConsultationRequest: true,
+                    assessmentData: assessmentPayload
+                })
+            });
+
+            if (response.ok) {
+                console.log('Assessment data sent to webhook successfully');
+            } else {
+                console.error('Webhook failed, using email backup');
             }
 
-            // Email backup
-            this.openEnhancedEmail(assessmentPayload);
+            // Always open email as backup
+            this.openEnhancedEmail();
 
         } catch (error) {
             console.error('Webhook error:', error);
@@ -496,11 +456,9 @@ ${this.questionSequence[0].question}`;
         }
     }
 
-    openEnhancedEmail(assessmentData = null) {
+    openEnhancedEmail() {
         const contactName = this.businessData.contact_name || 'Not provided';
         const businessName = this.businessData.business_name || 'Not provided';
-        const businessLocation = this.businessData.business_location || 'Not provided';
-        const businessType = this.businessData.business_type || 'Not provided';
         const contactEmail = this.businessData.contact_email || 'Not provided';
         const contactPhone = this.businessData.contact_phone || 'Not provided';
 
@@ -512,8 +470,8 @@ CONTACT INFORMATION:
 ===================
 Name: ${contactName}
 Business: ${businessName}
-Location: ${businessLocation}
-Type: ${businessType}
+Location: ${this.businessData.business_location || 'Not provided'}
+Type: ${this.businessData.business_type || 'Not provided'}
 Email: ${contactEmail}
 Phone: ${contactPhone}
 
@@ -524,10 +482,6 @@ Current Solutions: ${this.businessData.current_solution || 'Not provided'}
 Potential Time Savings: ${this.businessData.time_savings || 'Not provided'}
 Time Value: ${this.businessData.time_value || 'Not provided'}
 Lead Score: ${this.calculateLeadScore()}/100
-Data Completeness: ${this.getCompletionProgress()}%
-
-AI PROVIDER: ChatGPT-4o
-TOKENS USED: ${this.totalTokensUsed}
 
 FULL CONVERSATION:
 ==================
@@ -574,18 +528,6 @@ ${this.conversationHistory.map(msg => `${msg.role.toUpperCase()}: ${msg.content}
         else if (timeSavings >= 5) score += 15;
         else if (timeSavings >= 2) score += 10;
         
-        // Business type scoring
-        const businessType = (this.businessData.business_type || '').toLowerCase();
-        if (businessType.includes('salon') || businessType.includes('spa') || 
-            businessType.includes('clinic') || businessType.includes('dental') ||
-            businessType.includes('medical') || businessType.includes('appointment') ||
-            businessType.includes('grooming') || businessType.includes('pet') ||
-            businessType.includes('restaurant')) {
-            score += 15;
-        } else if (businessType.includes('retail') || businessType.includes('service')) {
-            score += 10;
-        }
-        
         return Math.min(score, 100);
     }
 
@@ -605,9 +547,8 @@ ${this.conversationHistory.map(msg => `${msg.role.toUpperCase()}: ${msg.content}
     }
 
     async generateSolutionProposal() {
-        setTimeout(async () => {
-            try {
-                const solutionPrompt = `Create a comprehensive AI solution proposal for this business owner using their exact information.
+        try {
+            const solutionPrompt = `Create a comprehensive AI solution proposal for this business owner using their exact information.
 
 BUSINESS OWNER: ${this.businessData.contact_name || 'Business Owner'}
 BUSINESS: ${this.businessData.business_name || 'Their Business'}
@@ -621,49 +562,51 @@ TIME VALUE: ${this.businessData.time_value || '$50 per hour'}
 CRITICAL INSTRUCTIONS:
 1. Use their EXACT time value and time savings - no assumptions
 2. Calculate precise ROI using their real numbers
-3. Do NOT include "Local Advantage" section
-4. End with ONLY the consultation question - no signatures
+3. Address them by first name
+4. Reference their specific business name and challenges
+5. End with ONLY the consultation question - no signatures
 
 PROPOSAL STRUCTURE:
 
-1. **EXECUTIVE SUMMARY**
-   - Address by first name
-   - Reference business name and location
-   - Mention specific challenges
+## EXECUTIVE SUMMARY
+- Address by first name
+- Reference business name and location
+- Mention specific challenges from their input
 
-2. **DETAILED ROI ANALYSIS**
-   - Use EXACT time value and savings
-   - Calculate: (time savings × time value × 52 weeks) = annual savings
-   - JAX AI fee: 10% of annual savings
-   - Show ROI percentage
+## DETAILED ROI ANALYSIS
+- Use EXACT time value and savings from their responses
+- Calculate: (time savings × time value × 52 weeks) = annual savings
+- JAX AI fee: 10% of annual savings
+- Show ROI percentage: ((annual savings - fee) / fee) × 100
 
-3. **CUSTOM AUTOMATION SOLUTIONS**
-   - 2-3 solutions for their specific challenges
-   - Reference their business name
+## CUSTOM AUTOMATION SOLUTIONS
+- 2-3 specific solutions based on their exact challenges
+- Reference their business name
+- Address their current manual processes
 
-4. **IMPLEMENTATION TIMELINE**
-   - 6-week timeline
-   - Pay-for-performance model
+## IMPLEMENTATION TIMELINE
+- 6-week timeline
+- Pay-for-performance model details
 
-5. **NEXT STEPS**
-   - "Would you like to schedule an in-person consultation to discuss implementing this solution for [business name]?"
+## NEXT STEPS
+- "Would you like to schedule an in-person consultation to discuss implementing this solution for [business name]?"
 
-Use only their real data - no placeholders or assumptions.`;
+Use only their real data - no placeholders or assumptions. Be specific and personal.`;
 
-                this.addMessage('Creating your personalized automation strategy with precise ROI calculations...', 'thinking');
+            this.addMessage('Creating your personalized automation strategy with precise ROI calculations...', 'thinking');
 
-                const response = await this.getAISolutionResponse(solutionPrompt);
-                this.removeLastMessage();
-                this.addMessage(response, 'ai');
-                
-                this.solutionProposalGenerated = true;
-                this.updateStatus('Please let me know if you\'d like to schedule a consultation');
+            const response = await this.getAISolutionResponse(solutionPrompt);
+            this.removeLastMessage();
+            this.addMessage(response, 'ai');
+            
+            this.solutionProposalGenerated = true;
+            this.updateStatus('Please let me know if you\'d like to schedule a consultation');
 
-            } catch (error) {
-                this.removeLastMessage();
-                this.showError('Error generating your solution proposal. Please refresh and try again.');
-            }
-        }, 1500);
+        } catch (error) {
+            this.removeLastMessage();
+            this.showError('Error generating your solution proposal. Please refresh and try again.');
+            console.error('Solution generation error:', error);
+        }
     }
 
     async getAISolutionResponse(solutionPrompt) {
@@ -679,7 +622,7 @@ Use only their real data - no placeholders or assumptions.`;
                 },
                 body: JSON.stringify({
                     messages: [{ role: 'user', content: solutionPrompt }],
-                    systemPrompt: 'You are an expert AI business consultant. Use ONLY the exact data provided. Never assume numbers. Create personalized proposals without signatures.',
+                    systemPrompt: 'You are an expert AI business consultant. Use ONLY the exact data provided. Never assume numbers. Create personalized proposals without signatures. Be specific and reference the actual business details provided.',
                     maxTokens: 1500
                 })
             });
@@ -717,7 +660,7 @@ Use only their real data - no placeholders or assumptions.`;
         label.className = 'message-label';
         
         if (type === 'ai') {
-            label.textContent = 'AI Consultant (ChatGPT-4o)';
+            label.textContent = 'JAX AI Consultant (ChatGPT-5)';
         } else if (type === 'user') {
             label.textContent = 'You';
         } else if (type === 'thinking') {
