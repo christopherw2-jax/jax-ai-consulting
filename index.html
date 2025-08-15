@@ -1576,33 +1576,25 @@ Let's start with the basics - could you tell me your name, your business name, a
             }
 
             buildContextualPrompt(userMessage) {
-                const businessName = this.businessData.business_name || '';
-                const contactName = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
-                const location = this.businessData.business_location || '';
+                // Ultra-short prompt for GPT-5
+                const nextItem = this.getNextMissingItem();
                 
-                // Strict data collection order - no email/phone until after proposal
-                let context = `You are Claude, an AI consultant for JAX AI Consulting. Have a natural conversation.
-
-REQUIRED DATA TO COLLECT (in order):
-1. Contact name: ${this.capturedData.contact_name ? '✓' : '❌'}
-2. Business name: ${this.capturedData.business_name ? '✓' : '❌'}  
-3. Business location: ${this.capturedData.business_location ? '✓' : '❌'}
-4. Business type/what they do: ${this.capturedData.business_type ? '✓' : '❌'}
-5. Main challenges: ${this.capturedData.pain_points ? '✓' : '❌'}
-6. Current solutions: ${this.capturedData.current_solution ? '✓' : '❌'}
-7. Hours per week spent on this challenge: ${this.capturedData.time_savings ? '✓' : '❌'}
-8. Time value per hour: ${this.capturedData.time_value ? '✓' : '❌'}
+                if (nextItem === 'all data collected - generate proposal') {
+                    return `User said: "${userMessage}"\nYou have all needed data. Say you'll create their proposal now.`;
+                }
+                
+                let context = `You are Claude, AI consultant. Be natural and friendly.
 
 User said: "${userMessage}"
 
-CRITICAL RULES:
-- Ask about ONLY the next missing item from the list above
-- Do NOT ask for email/phone until AFTER proposal is generated
-- When you have business name + location, look it up and mention something relevant
-- Keep responses under 40 words
-- Be natural and conversational
+Ask about: ${nextItem}
 
-Next missing item to ask about: ${this.getNextMissingItem()}`;
+Be conversational, under 30 words.`;
+
+                // Add business research instruction only when we have business name + location
+                if (this.capturedData.business_name && this.capturedData.business_location && !this.capturedData.business_type) {
+                    context += `\nLook up "${this.businessData.business_name}" in ${this.businessData.business_location} and mention something relevant.`;
+                }
 
                 return context;
             }
