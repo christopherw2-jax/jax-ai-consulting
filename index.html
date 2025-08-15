@@ -1118,8 +1118,8 @@
                     <div class="input-section" id="inputSection" style="display: none;">
                         <textarea class="text-input" id="textInput" placeholder="Type your response here..."></textarea>
                         <div class="input-controls">
-                            <button class="voice-button" id="voiceButton" title="Click to speak">🎤</button>
                             <button class="input-button" id="submitButton" onclick="sendMessage()">Send</button>
+                            <button class="input-button" id="exportButton" onclick="exportChat()" style="background: #059669;">Export Chat</button>
                         </div>
                         <div class="status-text" id="statusText"></div>
                     </div>
@@ -1213,6 +1213,44 @@
             if (window.assessmentSystem) {
                 window.assessmentSystem.startAssessment();
             }
+        }
+
+        // Export chat function
+        function exportChat() {
+            const conversationDisplay = document.getElementById('conversationDisplay');
+            const messages = conversationDisplay.querySelectorAll('.message');
+            
+            let chatExport = 'JAX AI CONSULTING - CHAT EXPORT\n';
+            chatExport += '=====================================\n';
+            chatExport += `Date: ${new Date().toLocaleString()}\n`;
+            chatExport += `Business: ${window.assessmentSystem?.businessData?.business_name || 'Unknown'}\n`;
+            chatExport += `Contact: ${window.assessmentSystem?.businessData?.contact_name || 'Unknown'}\n\n`;
+            
+            messages.forEach(message => {
+                const label = message.querySelector('.message-label').textContent;
+                const content = message.querySelector('.message-content').textContent;
+                chatExport += `${label}:\n${content}\n\n`;
+            });
+            
+            // Add business data summary
+            if (window.assessmentSystem?.businessData) {
+                chatExport += '\nCAPTURED DATA SUMMARY:\n';
+                chatExport += '=====================\n';
+                Object.entries(window.assessmentSystem.businessData).forEach(([key, value]) => {
+                    if (value) {
+                        chatExport += `${key}: ${value}\n`;
+                    }
+                });
+            }
+            
+            // Download as text file
+            const blob = new Blob([chatExport], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `JAX_AI_Chat_${new Date().getTime()}.txt`;
+            a.click();
+            window.URL.revokeObjectURL(url);
         }
 
         function sendMessage() {
@@ -1350,14 +1388,6 @@
             }
 
             setupEventListeners() {
-                document.getElementById('voiceButton').addEventListener('click', () => {
-                    if (this.isListening) {
-                        this.stopListening();
-                    } else {
-                        this.startListening();
-                    }
-                });
-
                 document.getElementById('textInput').addEventListener('keypress', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -1426,7 +1456,13 @@ Let's start with the basics - could you tell me your name, your business name, a
                 // Check if this is a response to consultation question (after solution proposal)
                 if (this.solutionProposalGenerated) {
                     if (message.toLowerCase().includes('yes') || message.toLowerCase().includes('schedule') || message.toLowerCase().includes('consultation')) {
-                        this.handleConsultationRequest(message);
+                        // NOW ask for contact details
+                        if (!this.capturedData.contact_email || !this.capturedData.contact_phone) {
+                            this.addMessage('Perfect! To schedule your consultation, I\'ll need your email and phone number. What\'s the best way to reach you?', 'ai');
+                            return;
+                        } else {
+                            this.handleConsultationRequest(message);
+                        }
                     } else {
                         this.addMessage('Thank you for your response. Let me know if you have any questions or if you\'d like to schedule a consultation!', 'ai');
                     }
@@ -1464,11 +1500,12 @@ Let's start with the basics - could you tell me your name, your business name, a
             }
 
             hasEnoughDataForProposal() {
-                // Core required data for proposal
+                // Core required data for proposal (NO email/phone needed yet)
                 const requiredData = [
                     'contact_name',
                     'business_name', 
                     'business_location',
+                    'business_type',
                     'pain_points',
                     'current_solution',
                     'time_savings',
@@ -1499,7 +1536,6 @@ Let's start with the basics - could you tell me your name, your business name, a
                     // Disable input since we can't continue without AI
                     document.getElementById('textInput').disabled = true;
                     document.getElementById('submitButton').disabled = true;
-                    document.getElementById('voiceButton').disabled = true;
                     
                     this.updateStatus('Assessment unavailable - GPT-5 connection failed');
                 }
@@ -1544,35 +1580,43 @@ Let's start with the basics - could you tell me your name, your business name, a
                 const contactName = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
                 const location = this.businessData.business_location || '';
                 
-                // SHORTENED prompt for GPT-5 to avoid length issues
+                // Strict data collection order - no email/phone until after proposal
                 let context = `You are Claude, an AI consultant for JAX AI Consulting. Have a natural conversation.
 
-MISSING DATA (ask about one):`;
+REQUIRED DATA TO COLLECT (in order):
+1. Contact name: ${this.capturedData.contact_name ? '✓' : '❌'}
+2. Business name: ${this.capturedData.business_name ? '✓' : '❌'}  
+3. Business location: ${this.capturedData.business_location ? '✓' : '❌'}
+4. Business type/what they do: ${this.capturedData.business_type ? '✓' : '❌'}
+5. Main challenges: ${this.capturedData.pain_points ? '✓' : '❌'}
+6. Current solutions: ${this.capturedData.current_solution ? '✓' : '❌'}
+7. Hours per week spent on this challenge: ${this.capturedData.time_savings ? '✓' : '❌'}
+8. Time value per hour: ${this.capturedData.time_value ? '✓' : '❌'}
 
-                // Only list the most critical missing data to keep prompt short
-                const criticalMissing = [];
-                if (!this.capturedData.contact_name) criticalMissing.push('name');
-                if (!this.capturedData.business_name) criticalMissing.push('business name');
-                if (!this.capturedData.business_location) criticalMissing.push('location');
-                if (!this.capturedData.contact_email) criticalMissing.push('email');
-                if (!this.capturedData.contact_phone) criticalMissing.push('phone');
-                if (!this.capturedData.pain_points) criticalMissing.push('challenges');
-                if (!this.capturedData.current_solution) criticalMissing.push('current solutions');
-                if (!this.capturedData.time_savings) criticalMissing.push('hours saved');
-                if (!this.capturedData.time_value) criticalMissing.push('time value');
+User said: "${userMessage}"
 
-                context += `\n${criticalMissing.slice(0, 3).join(', ')}\n`;
+CRITICAL RULES:
+- Ask about ONLY the next missing item from the list above
+- Do NOT ask for email/phone until AFTER proposal is generated
+- When you have business name + location, look it up and mention something relevant
+- Keep responses under 40 words
+- Be natural and conversational
 
-                context += `User said: "${userMessage}"\n\n`;
-
-                // Simple instruction based on what's missing
-                if (criticalMissing.length > 0) {
-                    context += `Ask about the first missing item naturally. Be conversational, under 50 words.`;
-                } else {
-                    context += `You have all data. Say you'll create their proposal.`;
-                }
+Next missing item to ask about: ${this.getNextMissingItem()}`;
 
                 return context;
+            }
+
+            getNextMissingItem() {
+                if (!this.capturedData.contact_name) return 'contact name';
+                if (!this.capturedData.business_name) return 'business name';
+                if (!this.capturedData.business_location) return 'business location';
+                if (!this.capturedData.business_type) return 'business type/what they do';
+                if (!this.capturedData.pain_points) return 'main challenges/time-consuming tasks';
+                if (!this.capturedData.current_solution) return 'current solutions they use';
+                if (!this.capturedData.time_savings) return 'hours per week spent on this challenge';
+                if (!this.capturedData.time_value) return 'time value per hour';
+                return 'all data collected - generate proposal';
             }
 
             async getAIResponse(prompt) {
