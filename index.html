@@ -1487,15 +1487,56 @@ Let's start with the basics - could you tell me your name, your business name, a
                     this.addMessage(response, 'ai');
                     
                     // Update status based on progress
-                    if (this.questionsAnswered < 6) {
-                        this.updateStatus(`Learning about your business (${this.questionsAnswered}/6)`);
-                    }
+                    const missingCount = Object.values(this.capturedData).filter(captured => !captured).length;
+                    this.updateStatus(`Gathering details (${10 - missingCount}/10 pieces collected)`);
                     
                 } catch (error) {
                     console.error('Error getting AI response:', error);
-                    // Fallback to manual next question
-                    this.moveToNextQuestionManually();
+                    
+                    // Show error and stop the assessment
+                    this.showError(`Unable to connect to GPT-5. Please refresh the page and try again. ${error.message}`);
+                    
+                    // Disable input since we can't continue without AI
+                    document.getElementById('textInput').disabled = true;
+                    document.getElementById('submitButton').disabled = true;
+                    document.getElementById('voiceButton').disabled = true;
+                    
+                    this.updateStatus('Assessment unavailable - GPT-5 connection failed');
                 }
+            }
+
+            useIntelligentFallback(userMessage) {
+                // Create natural fallback responses based on what's missing
+                const missingData = Object.keys(this.capturedData).filter(key => !this.capturedData[key]);
+                const name = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
+                const businessName = this.businessData.business_name || 'your business';
+                
+                let response = '';
+                
+                if (missingData.includes('contact_phone') || missingData.includes('contact_email')) {
+                    response = `That's great to know${name ? ', ' + name : ''}! To make sure I can send you a detailed proposal, could you share your email and phone number with me?`;
+                } else if (missingData.includes('pain_points')) {
+                    response = `Interesting! So for ${businessName}, what would you say are your biggest time-consuming challenges right now? What tasks eat up most of your day?`;
+                } else if (missingData.includes('current_solution')) {
+                    response = `I see! And what have you tried so far to address these challenges? Are you handling everything manually, or do you have some systems in place?`;
+                } else if (missingData.includes('time_savings')) {
+                    response = `That makes sense. If we could automate or streamline these processes for you, how many hours per week do you think that might save you?`;
+                } else if (missingData.includes('time_value')) {
+                    response = `Perfect! And just so I can calculate the ROI for you - what would you estimate your time is worth per hour?`;
+                } else if (missingData.includes('business_type')) {
+                    response = `${name ? name + ', ' : ''}tell me more about what ${businessName} does. What services do you offer?`;
+                } else {
+                    // We have everything needed
+                    response = `Perfect! I think I have everything I need to put together a great proposal for you.`;
+                    setTimeout(() => {
+                        this.generateSolutionProposal();
+                    }, 1000);
+                }
+                
+                this.addMessage(response, 'ai');
+                
+                const missingCount = missingData.length;
+                this.updateStatus(`Gathering details (${10 - missingCount}/10 pieces collected)`);
             }
 
             buildContextualPrompt(userMessage) {
@@ -1542,27 +1583,55 @@ Be natural, conversational, and show genuine interest in their business!`;
 
             async getAIResponse(prompt) {
                 try {
-                    const functionUrl = window.location.hostname === 'localhost' 
-                        ? 'http://localhost:8888/.netlify/functions/ai-assessment'
-                        : '/.netlify/functions/ai-assessment';
+                    // Try different URL patterns for Netlify functions
+                    const possibleUrls = [
+                        '/.netlify/functions/ai-assessment',
+                        '/api/ai-assessment', 
+                        window.location.origin + '/.netlify/functions/ai-assessment'
+                    ];
+                    
+                    let response;
+                    let lastError;
+                    
+                    for (const url of possibleUrls) {
+                        try {
+                            console.log('Trying GPT-5 URL:', url);
+                            response = await fetch(url, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    messages: [{ role: 'user', content: prompt }],
+                                    systemPrompt: 'You are Claude, a friendly and natural AI business consultant. Be conversational, not robotic. Show genuine interest and personality.',
+                                    maxTokens: 200
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                break; // Success!
+                            } else {
+                                console.log(`GPT-5 URL ${url} failed with status:`, response.status);
+                                const errorData = await response.json().catch(() => ({}));
+                                lastError = new Error(`GPT-5 API Error: ${response.status} - ${errorData.details || errorData.error || 'Unknown error'}`);
+                            }
+                        } catch (error) {
+                            console.log(`GPT-5 URL ${url} failed with error:`, error.message);
+                            lastError = error;
+                        }
+                    }
 
-                    const response = await fetch(functionUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            messages: [{ role: 'user', content: prompt }],
-                            systemPrompt: 'You are Claude, a friendly and natural AI business consultant. Be conversational, not robotic. Show genuine interest and personality.',
-                            maxTokens: 200
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`Backend request failed with status ${response.status}`);
+                    if (!response || !response.ok) {
+                        console.error('All GPT-5 URLs failed. Last error:', lastError);
+                        throw new Error(`GPT-5 service unavailable: ${lastError?.message || 'All endpoints failed'}`);
                     }
 
                     const data = await response.json();
+                    
+                    if (!data.content || !data.content[0] || !data.content[0].text) {
+                        throw new Error('Invalid response format from GPT-5');
+                    }
+                    
                     const aiResponse = data.content[0].text;
 
                     // Track tokens
@@ -1579,8 +1648,10 @@ Be natural, conversational, and show genuine interest in their business!`;
                     return aiResponse;
 
                 } catch (error) {
-                    console.error('AI Response Error:', error);
-                    throw error;
+                    console.error('GPT-5 Connection Error:', error);
+                    
+                    // Throw error to stop assessment - no fallbacks
+                    throw new Error(`GPT-5 Connection Failed: ${error.message}`);
                 }
             }
 
