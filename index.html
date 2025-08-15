@@ -1576,15 +1576,32 @@ Let's start with the basics - could you tell me your name, your business name, a
             }
 
             buildContextualPrompt(userMessage) {
-                // ULTRA minimal prompt for GPT-5
                 const nextItem = this.getNextMissingItem();
+                const businessName = this.businessData.business_name || '';
+                const contactName = this.businessData.contact_name ? this.businessData.contact_name.split(' ')[0] : '';
                 
                 if (nextItem === 'all data collected - generate proposal') {
-                    return `Say you'll create their proposal.`;
+                    return `Perfect! I have all the information I need. Let me create your automation proposal.`;
                 }
                 
-                // Just the essential instruction
-                return `Ask about: ${nextItem}`;
+                // Normal length prompts - maybe the issue is elsewhere
+                let context = `You are Claude, a friendly AI consultant for JAX AI Consulting.
+
+${contactName ? `The user's name is ${contactName}.` : ''}
+${businessName ? `Their business is ${businessName}.` : ''}
+
+User just said: "${userMessage}"
+
+Please ask them about: ${nextItem}
+
+Keep your response natural and under 50 words.`;
+
+                // Add business research when appropriate
+                if (this.capturedData.business_name && this.capturedData.business_location && nextItem === 'business type/what they do') {
+                    context += `\n\nIMPORTANT: Look up "${businessName}" in ${this.businessData.business_location} and mention something relevant about their business to show your knowledge.`;
+                }
+
+                return context;
             }
 
             getNextMissingItem() {
