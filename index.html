@@ -1576,27 +1576,15 @@ Let's start with the basics - could you tell me your name, your business name, a
             }
 
             buildContextualPrompt(userMessage) {
-                // Ultra-short prompt for GPT-5
+                // ULTRA minimal prompt for GPT-5
                 const nextItem = this.getNextMissingItem();
                 
                 if (nextItem === 'all data collected - generate proposal') {
-                    return `User said: "${userMessage}"\nYou have all needed data. Say you'll create their proposal now.`;
+                    return `Say you'll create their proposal.`;
                 }
                 
-                let context = `You are Claude, AI consultant. Be natural and friendly.
-
-User said: "${userMessage}"
-
-Ask about: ${nextItem}
-
-Be conversational, under 30 words.`;
-
-                // Add business research instruction only when we have business name + location
-                if (this.capturedData.business_name && this.capturedData.business_location && !this.capturedData.business_type) {
-                    context += `\nLook up "${this.businessData.business_name}" in ${this.businessData.business_location} and mention something relevant.`;
-                }
-
-                return context;
+                // Just the essential instruction
+                return `Ask about: ${nextItem}`;
             }
 
             getNextMissingItem() {
