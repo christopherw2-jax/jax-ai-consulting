@@ -53,7 +53,7 @@ exports.handler = async (event, context) => {
       },
       body: JSON.stringify({
         model: 'gpt-5', // GPT-5 ONLY
-        max_completion_tokens: Math.min(maxTokens, 300), // Even fewer tokens for faster responses
+        max_completion_tokens: 150, // Minimal tokens
         messages: formattedMessages
         // GPT-5 only supports default temperature (1) - removed all other parameters
       })
